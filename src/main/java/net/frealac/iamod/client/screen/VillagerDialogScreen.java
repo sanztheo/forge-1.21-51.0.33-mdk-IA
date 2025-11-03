@@ -328,7 +328,7 @@ public class VillagerDialogScreen extends Screen {
                 String name = mapGet(o, "name");
                 String rel = mapGet(o, "relation");
                 String opin = mapGet(o, "opinion");
-                lines.add(Component.literal("- " + (name!=null?name:"?") + " (" + (rel!=null?rel:"?") + ") · opinion: " + (opin!=null?opin:"0"))));
+                lines.add(Component.literal("- " + (name!=null?name:"?") + " (" + (rel!=null?rel:"?") + ") · opinion: " + (opin!=null?opin:"0")));
             }
         } else {
             lines.add(Component.literal("Aucun lien connu."));

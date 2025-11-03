@@ -293,8 +293,19 @@ Phase 3 — Graphe social & économie/légal
 - [x] Nouvelles du village (news) dérivées des derniers événements
 - [x] UI: onglet “Relations” (affiche relations, économie/légal, nouvelles)
 
-Phase 4 — LLM cosmétique 
-- [ ] Batch `bioLong` et `dialogueOpeners` par village
+Phase 4 — LLM cosmétique (optionnel, OFF par défaut)
+- [ ] Config serveur: `iamod.llm.enabled=false`, `iamod.llm.model=gpt-4.1-nano`, `iamod.llm.timeout=20s`, `iamod.llm.batch_size=24`
+- [ ] Batch par village (1ère visite):
+  - [ ] `bioLong` pour chaque PNJ sans `bioLong`
+  - [ ] `dialogueOpeners` par culture/langue (5–10 accroches)
+- [ ] Cache adressable au contenu (SavedData):
+  - [ ] clé = sha256(schema|gen|promptVersion|worldSeed|villageId|cultureId|inputJson)
+  - [ ] TTL configurable + invalidation sur changement de `promptVersion`
+- [ ] Réseau et UI:
+  - [ ] Raffinement exécuté uniquement côté serveur (thread pool limité, rate limit), synchr. S2C à la fin
+  - [ ] Spinner “Affinage (IA)” facultatif côté client si `iamod.llm.enabled=true`
+- [ ] Fallback total offline: si indisponible → gabarits CFG locaux (aucun blocage)
+- [ ] Logs et métriques: durée batch, cache hit/miss, erreurs
 
 Phase 5 — Dialogues IA & intentions
 - [ ] Moteur d’intentions (saluer, informer, se plaindre, demander, raconter souvenir, commérer)
