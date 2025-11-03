@@ -60,6 +60,7 @@ public class OpenAiService {
 
         root.add("messages", messages);
         root.addProperty("temperature", 0.7);
+        root.addProperty("max_tokens", 3000);
 
         HttpRequest request = HttpRequest.newBuilder(CHAT_URI)
                 .header("Authorization", "Bearer " + apiKey)
@@ -96,6 +97,7 @@ public class OpenAiService {
         }
         root.add("messages", messages);
         root.addProperty("temperature", 0.7);
+        root.addProperty("max_tokens", 3000);
 
         HttpRequest request = HttpRequest.newBuilder(CHAT_URI)
                 .header("Authorization", "Bearer " + apiKey)
@@ -135,6 +137,7 @@ public class OpenAiService {
                 }
                 root.add("messages", messages);
                 root.addProperty("temperature", 0.7);
+                root.addProperty("max_tokens", 3000);
                 root.addProperty("stream", true);
 
                 HttpURLConnection conn = (HttpURLConnection) CHAT_URI.toURL().openConnection();

@@ -287,11 +287,11 @@ Phase 2 — Chronologie & santé/trauma
 - [x] UI: onglets “Histoire” + “Santé” et bouton “Debug” (overlay story complète)
   
 Phase 3 — Graphe social & économie/légal
-- [ ] Relations détaillées (opinions dynamiques)
-- [ ] Économie: richesse, dettes, possessions
-- [ ] Légal: casier, réputation multi‑villages
-- [ ] Mécaniques de commérage + souvenirs dynamiques
-- [ ] UI: onglet “Relations”
+- [x] Relations (liste connue + opinions)
+- [x] Économie: richesse, épargne, possessions
+- [x] Légal: réputation village, fiabilité, enregistrement simple
+- [x] Nouvelles du village (news) dérivées des derniers événements
+- [x] UI: onglet “Relations” (affiche relations, économie/légal, nouvelles)
 
 Phase 4 — LLM cosmétique 
 - [ ] Batch `bioLong` et `dialogueOpeners` par village

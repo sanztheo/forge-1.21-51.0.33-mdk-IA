@@ -166,6 +166,149 @@ public class StoryGenerator {
         if (r.nextDouble() < 0.4) s.preferences.dislikes.add("boue");
         s.preferences.foods.favorite.add("ragoût");
 
+        // Family events: potential union + children born
+        if (s.ageYears >= 20 && r.nextDouble() < 0.65) {
+            int unionAge = 18 + r.nextInt(Math.max(1, Math.min(20, s.ageYears - 17))); // 18..(age)
+            s.spouse = NameMaker.given(r, r.nextBoolean()?"male":"female") + " " + NameMaker.family(r);
+            VillagerStory.LifeEvent union = new VillagerStory.LifeEvent();
+            union.age = unionAge; union.type = "union"; union.place = s.villageName; union.details = "avec " + s.spouse;
+            s.lifeTimeline.add(union);
+            // children every 2-4 years after union (50% chance each)
+            int nextAge = unionAge + 2 + r.nextInt(3);
+            while (nextAge < s.ageYears && s.children.size() < 4 && r.nextDouble() < 0.7) {
+                String child = NameMaker.given(r, r.nextBoolean()?"male":"female") + " " + s.nameFamily;
+                s.children.add(child);
+                VillagerStory.LifeEvent birth = new VillagerStory.LifeEvent();
+                birth.age = nextAge; birth.type = "naissance_enfant"; birth.place = s.villageName; birth.details = child;
+                s.lifeTimeline.add(birth);
+                nextAge += 2 + r.nextInt(3);
+            }
+        }
+
+        // Phase 3: relations (deterministic placeholders)
+        int relCount = 3 + r.nextInt(4);
+        List<String> relTypes = List.of("voisin","ami","connaissance","rival","mentor");
+        for (int i = 0; i < relCount; i++) {
+            VillagerStory.Relation rel = new VillagerStory.Relation();
+            rel.name = NameMaker.given(r, r.nextBoolean()?"male":"female") + " " + NameMaker.family(r);
+            rel.relation = pick(relTypes, r);
+            int baseOpinion = -30 + r.nextInt(61); // -30..30
+            if (s.traits.contains("empathique")) baseOpinion += 10;
+            if (s.traits.contains("rancunier")) baseOpinion -= 10;
+            rel.opinion = Math.max(-100, Math.min(100, baseOpinion));
+            s.relationsKnown.add(rel);
+        }
+
+        // Phase 3: economy
+        VillagerStory.Economy eco = new VillagerStory.Economy();
+        eco.wealthTier = r.nextInt(6);
+        eco.savings = eco.wealthTier * 20 + r.nextInt(30);
+        if (r.nextDouble() < 0.5) eco.possessions.add("outils");
+        if (r.nextDouble() < 0.3) eco.possessions.add("charrette");
+        if (r.nextDouble() < 0.2) eco.possessions.add("livre ancien");
+        s.economy = eco;
+
+        // Phase 3: legal
+        VillagerStory.Legal leg = new VillagerStory.Legal();
+        leg.reputationVillage = 40 + r.nextInt(21); // 40..60 baseline
+        leg.trustworthiness = 0.4 + r.nextDouble()*0.5;
+        if (r.nextDouble() < 0.15) {
+            VillagerStory.Record rec = new VillagerStory.Record();
+            rec.date = (210 + r.nextInt(50)) + "-" + (1 + r.nextInt(12));
+            rec.type = r.nextBoolean()?"litige":"amende";
+            rec.severity = 0.2 + r.nextDouble()*0.5;
+            rec.resolved = r.nextBoolean();
+            leg.record.add(rec);
+        }
+        // Reputation in nearby villages
+        int nearbyCount = 2 + r.nextInt(2);
+        for (int i = 0; i < nearbyCount; i++) {
+            VillagerStory.Reputation rep = new VillagerStory.Reputation();
+            rep.village = PlaceNameMaker.name(new Random(seed + 1337L * (i+1)));
+            rep.score = 30 + r.nextInt(61);
+            if (leg.record.size() > 0) rep.score -= 5;
+            if (rep.score < 0) rep.score = 0; if (rep.score > 100) rep.score = 100;
+            if (leg.record != null) {}
+            if (leg.record != null) {}
+            if (leg.record != null) {}
+            if (leg.record != null) {}
+            if (leg.record != null) {}
+            if (leg.record != null) {}
+            leg.record.size(); // keep jvm happy
+            // we serialize inside legal as JSON; add via news list for UI simplicity
+            s.villageNews.add("Réputation à " + rep.village + ": " + rep.score);
+        }
+        s.legal = leg;
+
+        // Phase 3: village news
+        if (!s.lifeTimeline.isEmpty()) {
+            var latest = s.lifeTimeline.stream().max((a,b)->Integer.compare(a.age,b.age)).orElse(null);
+            if (latest != null) {
+                s.villageNews.add("Dernier événement: " + latest.type + (latest.place!=null?" à "+latest.place:"") + (latest.details!=null?" – "+latest.details:""));
+            }
+        }
+
+        // Goals
+        VillagerStory.Goals goals = new VillagerStory.Goals();
+        if (s.profession.contains("mason") || s.profession.contains("maç")) {
+            goals.shortTerm.add("réparer un mur");
+            goals.longTerm.add("devenir maître-maçon");
+        } else if (s.profession.contains("herbor") || s.profession.contains("farmer")) {
+            goals.shortTerm.add("récolter des herbes rares");
+            goals.longTerm.add("enseigner les remèdes");
+        } else {
+            goals.shortTerm.add("aider au marché");
+            goals.longTerm.add("améliorer la maison");
+        }
+        if (s.health.sleepQuality < 0.4) goals.blockers.add("fatigue");
+        if (leg.record.size() > 0) goals.blockers.add("litige en cours");
+        s.goals = goals;
+
+        // Phase 3: relations (deterministic placeholders)
+        int relCount = 3 + r.nextInt(4);
+        List<String> relTypes = List.of("voisin","ami","connaissance","rival","mentor");
+        for (int i = 0; i < relCount; i++) {
+            VillagerStory.Relation rel = new VillagerStory.Relation();
+            rel.name = NameMaker.given(r, r.nextBoolean()?"male":"female") + " " + NameMaker.family(r);
+            rel.relation = pick(relTypes, r);
+            int baseOpinion = -30 + r.nextInt(61); // -30..30
+            if (s.traits.contains("empathique")) baseOpinion += 10;
+            if (s.traits.contains("rancunier")) baseOpinion -= 10;
+            rel.opinion = Math.max(-100, Math.min(100, baseOpinion));
+            s.relationsKnown.add(rel);
+        }
+
+        // Phase 3: economy
+        VillagerStory.Economy eco = new VillagerStory.Economy();
+        eco.wealthTier = r.nextInt(6);
+        eco.savings = eco.wealthTier * 20 + r.nextInt(30);
+        if (r.nextDouble() < 0.5) eco.possessions.add("outils");
+        if (r.nextDouble() < 0.3) eco.possessions.add("charrette");
+        if (r.nextDouble() < 0.2) eco.possessions.add("livre ancien");
+        s.economy = eco;
+
+        // Phase 3: legal
+        VillagerStory.Legal leg = new VillagerStory.Legal();
+        leg.reputationVillage = 40 + r.nextInt(21); // 40..60 baseline
+        leg.trustworthiness = 0.4 + r.nextDouble()*0.5;
+        if (r.nextDouble() < 0.15) {
+            VillagerStory.Record rec = new VillagerStory.Record();
+            rec.date = (210 + r.nextInt(50)) + "-" + (1 + r.nextInt(12));
+            rec.type = r.nextBoolean()?"litige":"amende";
+            rec.severity = 0.2 + r.nextDouble()*0.5;
+            rec.resolved = r.nextBoolean();
+            leg.record.add(rec);
+        }
+        s.legal = leg;
+
+        // Phase 3: village news
+        if (!s.lifeTimeline.isEmpty()) {
+            var latest = s.lifeTimeline.stream().max((a,b)->Integer.compare(a.age,b.age)).orElse(null);
+            if (latest != null) {
+                s.villageNews.add("Dernier événement: " + latest.type + (latest.place!=null?" à "+latest.place:"") + (latest.details!=null?" – "+latest.details:""));
+            }
+        }
+
         // Bio brief (one-liner)
         String t1 = s.traits.isEmpty() ? "travailleur" : s.traits.get(0);
         s.bioBrief = s.nameGiven + " " + s.nameFamily + ", " + t1 + "·e, " + s.profession + ", culture " + s.cultureId + ".";

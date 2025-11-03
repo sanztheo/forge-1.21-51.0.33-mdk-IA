@@ -53,7 +53,6 @@ public class NetworkHandler {
                     if (mc.screen instanceof VillagerDialogScreen s && s.getVillagerId() == msg.getVillagerId()) {
                         s.onStorySynced();
                         s.showIntroFromStory(story);
-                        s.onStoryUpdated(story);
                     }
                 })
                 .add();

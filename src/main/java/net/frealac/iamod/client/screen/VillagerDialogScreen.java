@@ -17,7 +17,7 @@ public class VillagerDialogScreen extends Screen {
     private final int villagerId;
     private final List<Entry> history = new ArrayList<>();
     private EditBox input;
-    private Button tabChatBtn, tabSummaryBtn, tabHistoryBtn, tabHealthBtn, debugBtn;
+    private Button tabChatBtn, tabSummaryBtn, tabHistoryBtn, tabHealthBtn, tabRelationsBtn, debugBtn;
     private Mode mode = Mode.SUMMARY;
     private boolean debugOverlay = false;
     private int chatScroll = 0; // lines scrolled up (0 = bottom)
@@ -27,7 +27,6 @@ public class VillagerDialogScreen extends Screen {
     private int contentMaxLines = 0; // for scrollbar calc
     private StringBuilder streamingBuffer = null;
     private boolean isLoading = true;
-    private boolean isEnriching = true;
     private int loadingTicks = 0;
     private boolean introShown = false;
     private boolean draggingContentScrollbar = false;
@@ -35,7 +34,7 @@ public class VillagerDialogScreen extends Screen {
     private int dragStartY;
     private int dragStartScroll;
     
-    private enum Mode { SUMMARY, CHAT, HISTORY, HEALTH }
+    private enum Mode { SUMMARY, CHAT, HISTORY, HEALTH, RELATIONS }
     
     // Layout constants - Style RPG en bas de l'écran
     private static final int DIALOG_HEIGHT = 180;
@@ -84,12 +83,15 @@ public class VillagerDialogScreen extends Screen {
                 .bounds(bx, tabY, bw, bh).build(); bx += bw + gap;
         tabHealthBtn = Button.builder(Component.literal("Santé"), b -> { mode = Mode.HEALTH; contentScroll = 0; })
                 .bounds(bx, tabY, bw, bh).build(); bx += bw + gap;
+        tabRelationsBtn = Button.builder(Component.literal("Relations"), b -> { mode = Mode.RELATIONS; contentScroll = 0; })
+                .bounds(bx, tabY, bw, bh).build(); bx += bw + gap;
         debugBtn = Button.builder(Component.literal("Debug"), b -> { debugOverlay = !debugOverlay; })
                 .bounds(dialogX + dialogW - 70, tabY, 70, bh).build();
         addRenderableWidget(tabChatBtn);
         addRenderableWidget(tabSummaryBtn);
         addRenderableWidget(tabHistoryBtn);
         addRenderableWidget(tabHealthBtn);
+        addRenderableWidget(tabRelationsBtn);
         addRenderableWidget(debugBtn);
         
         // Bloquer les mouvements du joueur
@@ -191,20 +193,19 @@ public class VillagerDialogScreen extends Screen {
                 case CHAT -> renderChat(g, textX, historyY, textW, historyH);
                 case HISTORY -> renderHistory(g, textX, historyY, textW, historyH);
                 case HEALTH -> renderHealth(g, textX, historyY, textW, historyH);
+                case RELATIONS -> renderRelations(g, textX, historyY, textW, historyH);
             }
         } else {
             renderDebugOverlay(g, dialogX + 8, dialogY + 8, dialogW - 16, DIALOG_HEIGHT - 16);
         }
         
-        // Loading/enrichment indicator
+        // Loading indicator
         int cx = dialogX + dialogW - 180;
         int cy = dialogY + 16;
         char[] spin = new char[]{'|','/','-','\\'};
         char ch = spin[(loadingTicks / 8) % spin.length];
         if (isLoading) {
             g.drawString(this.font, Component.literal("§7Chargement de l'histoire... §e" + ch), cx, cy, 0xFFFFFF);
-        } else if (isEnriching) {
-            g.drawString(this.font, Component.literal("§7Affinage (IA)… §e" + ch), cx, cy, 0xFFFFFF);
         }
 
         super.render(g, mouseX, mouseY, partialTick);
@@ -269,7 +270,7 @@ public class VillagerDialogScreen extends Screen {
         var story = net.frealac.iamod.client.story.ClientStoryCache.get(villagerId);
         List<Component> lines = new ArrayList<>();
         lines.add(Component.literal("§6Santé & Psychologie"));
-        if (story == null) { lines.add(Component.literal("Aucune donnée.")); drawWrapped(g, lines, x, y, w, h); return; }
+        if (story == null) { lines.add(Component.literal("Aucune donnée.")); drawWrappedScrollable(g, lines, x, y, w, h, true); return; }
         if (story.health != null) {
             lines.add(Component.literal("§eSanté:"));
             // Allergies
@@ -314,6 +315,46 @@ public class VillagerDialogScreen extends Screen {
             }
         }
         drawWrappedScrollable(g, lines, x, y, w, h, true);
+
+    }
+
+    private void renderRelations(GuiGraphics g, int x, int y, int w, int h) {
+        var story = net.frealac.iamod.client.story.ClientStoryCache.get(villagerId);
+        List<Component> lines = new ArrayList<>();
+        lines.add(Component.literal("§6Relations"));
+        if (story == null) { lines.add(Component.literal("Aucune donnée.")); drawWrappedScrollable(g, lines, x, y, w, h, true); return; }
+        if (story.relationsKnown != null && !story.relationsKnown.isEmpty()) {
+            for (Object o : story.relationsKnown) {
+                String name = mapGet(o, "name");
+                String rel = mapGet(o, "relation");
+                String opin = mapGet(o, "opinion");
+                lines.add(Component.literal("- " + (name!=null?name:"?") + " (" + (rel!=null?rel:"?") + ") · opinion: " + (opin!=null?opin:"0"))));
+            }
+        } else {
+            lines.add(Component.literal("Aucun lien connu."));
+        }
+        lines.add(Component.literal("§eÉconomie/Légal"));
+        if (story.economy != null) {
+            lines.add(Component.literal("Richesse: " + story.economy.wealthTier + " · Épargne: " + story.economy.savings));
+            if (story.economy.possessions != null && !story.economy.possessions.isEmpty())
+                lines.add(Component.literal("Biens: " + String.join(", ", story.economy.possessions)));
+        }
+        if (story.legal != null) {
+            lines.add(Component.literal(String.format("Réputation: %d · Fiabilité: %.2f", story.legal.reputationVillage, story.legal.trustworthiness)));
+        }
+        if (story.villageNews != null && !story.villageNews.isEmpty()) {
+            lines.add(Component.literal("§eNouvelles du village"));
+            for (String n : story.villageNews) lines.add(Component.literal("- " + n));
+        }
+        drawWrappedScrollable(g, lines, x, y, w, h, true);
+    }
+
+    private String mapGet(Object o, String key) {
+        try {
+            java.util.Map<?,?> m = (java.util.Map<?,?>) o;
+            Object v = m.get(key);
+            return v != null ? String.valueOf(v) : null;
+        } catch (Exception ignored) { return null; }
     }
 
     private void renderSummary(GuiGraphics g, int x, int y, int w, int h) {
@@ -331,6 +372,16 @@ public class VillagerDialogScreen extends Screen {
         if (story.parents != null && !story.parents.isEmpty()) lines.add(Component.literal("Parents: " + String.join(", ", story.parents)));
         if (story.siblings != null && !story.siblings.isEmpty()) lines.add(Component.literal("Fratrie: " + String.join(", ", story.siblings)));
         if (story.children != null && !story.children.isEmpty()) lines.add(Component.literal("Enfants: " + String.join(", ", story.children)));
+        if (story.spouse != null && !story.spouse.isBlank()) lines.add(Component.literal("Conjoint: " + story.spouse));
+        if (story.goals != null && ((story.goals.shortTerm!=null && !story.goals.shortTerm.isEmpty()) || (story.goals.longTerm!=null && !story.goals.longTerm.isEmpty()))) {
+            lines.add(Component.literal("§eObjectifs"));
+            if (story.goals.shortTerm != null && !story.goals.shortTerm.isEmpty())
+                lines.add(Component.literal("Court terme: " + String.join(", ", story.goals.shortTerm)));
+            if (story.goals.longTerm != null && !story.goals.longTerm.isEmpty())
+                lines.add(Component.literal("Long terme: " + String.join(", ", story.goals.longTerm)));
+            if (story.goals.blockers != null && !story.goals.blockers.isEmpty())
+                lines.add(Component.literal("Freins: " + String.join(", ", story.goals.blockers)));
+        }
         drawWrappedScrollable(g, lines, x, y, w, h, true);
     }
 
@@ -343,11 +394,7 @@ public class VillagerDialogScreen extends Screen {
             introShown = true;
         }
     }
-    public void onStoryUpdated(net.frealac.iamod.common.story.VillagerStory story) {
-        if (story != null) {
-            this.isEnriching = (story.bioLong == null || story.bioLong.isBlank());
-        }
-    }
+    // No-op (legacy hook removed for IA refinement)
 
     private void renderDebugOverlay(GuiGraphics g, int x, int y, int w, int h) {
         // Opaque background to avoid underlay bleed
