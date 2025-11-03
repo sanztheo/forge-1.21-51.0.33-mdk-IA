@@ -84,7 +84,7 @@ public class VillagerDialogScreen extends Screen {
     }
     
     @Override
-    public void renderBackground(GuiGraphics g) {
+    public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         // Ne rien faire - empêche le rendu du flou et de l'arrière-plan
     }
 
