@@ -53,6 +53,7 @@ public class NetworkHandler {
                     if (mc.screen instanceof VillagerDialogScreen s && s.getVillagerId() == msg.getVillagerId()) {
                         s.onStorySynced();
                         s.showIntroFromStory(story);
+                        s.onStoryUpdated(story);
                     }
                 })
                 .add();
@@ -79,27 +80,20 @@ public class NetworkHandler {
                     }
                     ConversationManager.ensureSystem(key, systemPromptFinal);
                     var history = ConversationManager.appendUserAndGetHistory(key, msg.getMessage());
-                    CompletableFuture
-                            .supplyAsync(() -> {
-                                try {
-                                    return new OpenAiService().chat(history);
-                                } catch (Exception e) {
-                                    return "Erreur IA: " + e.getMessage();
-                                }
-                            })
-                            .thenAccept(reply -> {
-                                // stream the reply in chunks to client (simulated streaming)
-                                final int idVillager = msg.getVillagerId();
-                                sender.getServer().execute(() -> CHANNEL.send(new AiReplyStreamChunkS2CPacket(idVillager, "", true, false), PacketDistributor.PLAYER.with(sender)));
-                                for (String chunk : splitReply(reply, 60)) { // approx 60 chars per chunk
-                                    try { Thread.sleep(30); } catch (InterruptedException ignored) {}
-                                    sender.getServer().execute(() -> CHANNEL.send(new AiReplyStreamChunkS2CPacket(idVillager, chunk, false, false), PacketDistributor.PLAYER.with(sender)));
-                                }
-                                sender.getServer().execute(() -> {
-                                    ConversationManager.appendAssistant(key, reply);
-                                    CHANNEL.send(new AiReplyStreamChunkS2CPacket(idVillager, "", false, true), PacketDistributor.PLAYER.with(sender));
-                                });
-                            });
+                    final int idVillager = msg.getVillagerId();
+                    OpenAiService service = new OpenAiService();
+                    service.chatStreamSSE(
+                            history,
+                            () -> sender.getServer().execute(() -> CHANNEL.send(new AiReplyStreamChunkS2CPacket(idVillager, "", true, false), PacketDistributor.PLAYER.with(sender))),
+                            chunk -> sender.getServer().execute(() -> CHANNEL.send(new AiReplyStreamChunkS2CPacket(idVillager, chunk, false, false), PacketDistributor.PLAYER.with(sender))),
+                            () -> sender.getServer().execute(() -> CHANNEL.send(new AiReplyStreamChunkS2CPacket(idVillager, "", false, true), PacketDistributor.PLAYER.with(sender)))
+                    ).handle((full, ex) -> {
+                        sender.getServer().execute(() -> {
+                            String reply = (ex == null) ? full : ("Erreur IA: " + ex.getMessage());
+                            ConversationManager.appendAssistant(key, reply);
+                        });
+                        return null;
+                    });
                 })
                 .add();
 
@@ -137,19 +131,5 @@ public class NetworkHandler {
                 .add();
     }
 
-    private static java.util.List<String> splitReply(String text, int maxChunk) {
-        java.util.ArrayList<String> out = new java.util.ArrayList<>();
-        if (text == null || text.isEmpty()) return out;
-        int i = 0;
-        while (i < text.length()) {
-            int end = Math.min(text.length(), i + maxChunk);
-            // try to split on space/newline near end
-            int j = end;
-            while (j > i + 20 && j < text.length() && text.charAt(j) != ' ' && text.charAt(j) != '\n') j--;
-            if (j <= i + 20) j = end;
-            out.add(text.substring(i, j));
-            i = j;
-        }
-        return out;
-    }
+    // simulated splitter removed (true SSE in use)
 }

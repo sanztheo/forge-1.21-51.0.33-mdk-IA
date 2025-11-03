@@ -27,6 +27,7 @@ public class VillagerStory {
 
     // Identity / culture
     public String cultureId;
+    public String villageName;        // readable place name
     public String nameGiven;
     public String nameFamily;
     public String sex;                // "male" | "female" | "other"
@@ -72,6 +73,7 @@ public class VillagerStory {
         tag.putInt("ageYears", ageYears);
         tag.putString("profession", Objects.toString(profession, ""));
         tag.putString("bioBrief", Objects.toString(bioBrief, ""));
+        if (villageName != null) tag.putString("villageName", villageName);
         if (bioLong != null && !bioLong.isEmpty()) tag.putString("bioLong", bioLong);
 
         // Lists as JSON strings for simplicity in Phase 1
@@ -103,6 +105,7 @@ public class VillagerStory {
         s.nameFamily = tag.getString("nameFamily");
         s.sex = tag.getString("sex");
         s.ageYears = tag.getInt("ageYears");
+        if (tag.contains("villageName")) s.villageName = tag.getString("villageName");
         s.profession = tag.getString("profession");
         s.bioBrief = tag.getString("bioBrief");
         if (tag.contains("bioLong")) s.bioLong = tag.getString("bioLong");

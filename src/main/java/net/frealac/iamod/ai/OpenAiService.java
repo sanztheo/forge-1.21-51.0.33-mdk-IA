@@ -8,13 +8,19 @@ import net.frealac.iamod.Config;
 import net.frealac.iamod.common.story.VillagerStory;
 
 import java.io.IOException;
+import java.io.OutputStream;
+import java.io.InputStreamReader;
+import java.io.BufferedReader;
 import java.net.URI;
+import java.net.HttpURLConnection;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 
 public class OpenAiService {
 
@@ -106,6 +112,83 @@ public class OpenAiService {
     }
 
     /**
+     * True streaming via SSE (Server-Sent Events). Calls handlers onStart -> onDelta(chunk) -> onDone.
+     * Returns a future completed with the full aggregated reply.
+     */
+    public CompletableFuture<String> chatStreamSSE(List<ChatMessage> history, Runnable onStart, Consumer<String> onDelta, Runnable onDone) {
+        CompletableFuture<String> result = new CompletableFuture<>();
+        new Thread(() -> {
+            StringBuilder full = new StringBuilder();
+            try {
+                final String apiKey = getApiKey();
+                if (apiKey == null || apiKey.isBlank()) throw new IllegalStateException("OPENAI_API_KEY manquant");
+                final String model = (Config.openAiModel == null || Config.openAiModel.isBlank()) ? DEFAULT_MODEL : Config.openAiModel;
+
+                JsonObject root = new JsonObject();
+                root.addProperty("model", model);
+                JsonArray messages = new JsonArray();
+                for (ChatMessage m : history) {
+                    JsonObject j = new JsonObject();
+                    j.addProperty("role", m.role);
+                    j.addProperty("content", m.content);
+                    messages.add(j);
+                }
+                root.add("messages", messages);
+                root.addProperty("temperature", 0.7);
+                root.addProperty("stream", true);
+
+                HttpURLConnection conn = (HttpURLConnection) CHAT_URI.toURL().openConnection();
+                conn.setRequestMethod("POST");
+                conn.setDoOutput(true);
+                conn.setConnectTimeout(10000);
+                conn.setReadTimeout(60000);
+                conn.setRequestProperty("Authorization", "Bearer " + apiKey);
+                conn.setRequestProperty("Content-Type", "application/json");
+                byte[] payload = root.toString().getBytes(StandardCharsets.UTF_8);
+                try (OutputStream os = conn.getOutputStream()) {
+                    os.write(payload);
+                }
+                int code = conn.getResponseCode();
+                if (code / 100 != 2) {
+                    InputStreamReader er = new InputStreamReader(conn.getErrorStream(), StandardCharsets.UTF_8);
+                    String err = new BufferedReader(er).lines().reduce((a,b)->a+b).orElse("");
+                    throw new IOException("OpenAI HTTP " + code + ": " + trim(err, 200));
+                }
+                if (onStart != null) onStart.run();
+                try (BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
+                    String line;
+                    while ((line = br.readLine()) != null) {
+                        line = line.trim();
+                        if (line.isEmpty() || line.equals(":")) continue; // comment/keepalive
+                        if (!line.startsWith("data:")) continue;
+                        String data = line.substring(5).trim();
+                        if ("[DONE]".equals(data)) break;
+                        try {
+                            JsonObject obj = JsonParser.parseString(data).getAsJsonObject();
+                            JsonArray choices = obj.getAsJsonArray("choices");
+                            if (choices != null && !choices.isEmpty()) {
+                                JsonObject delta = choices.get(0).getAsJsonObject().getAsJsonObject("delta");
+                                if (delta != null) {
+                                    String content = delta.has("content") && !delta.get("content").isJsonNull() ? delta.get("content").getAsString() : null;
+                                    if (content != null && !content.isEmpty()) {
+                                        full.append(content);
+                                        if (onDelta != null) onDelta.accept(content);
+                                    }
+                                }
+                            }
+                        } catch (Exception ignore) {}
+                    }
+                }
+                if (onDone != null) onDone.run();
+                result.complete(full.toString());
+            } catch (Exception ex) {
+                result.completeExceptionally(ex);
+            }
+        }, "iamod-openai-sse").start();
+        return result;
+    }
+
+    /**
      * Enrich villager story with a concise long bio and optional openers.
      * Returns the enriched bioLong (and may be extended in future).
      */
@@ -169,15 +252,47 @@ public class OpenAiService {
             throw new IOException("OpenAI HTTP " + response.statusCode() + ": " + trim(response.body(), 300));
         }
         String content = extractContent(response.body());
-        // try parse JSON {"bioLong":"..."}
+        return extractBioLongFromContent(content);
+    }
+
+    private static String extractBioLongFromContent(String content) {
+        if (content == null) return null;
+        String c = content.trim();
+        // Strip code fences
+        if (c.startsWith("```")) {
+            int i = c.indexOf('{');
+            int j = c.lastIndexOf('}');
+            if (i >= 0 && j > i) c = c.substring(i, j + 1);
+        }
+        // If raw JSON object
         try {
-            JsonObject obj = JsonParser.parseString(content).getAsJsonObject();
+            JsonObject obj = JsonParser.parseString(c).getAsJsonObject();
             JsonElement bioL = obj.get("bioLong");
-            if (bioL != null && !bioL.isJsonNull()) {
-                return trim(bioL.getAsString(), 2000);
-            }
+            if (bioL != null && !bioL.isJsonNull()) return trim(bioL.getAsString(), 2000);
         } catch (Exception ignore) {}
-        return trim(content, 2000);
+        // If content contains a field-like pattern "bioLong":"..."
+        int k = c.indexOf("\"bioLong\"");
+        if (k >= 0) {
+            int colon = c.indexOf(':', k);
+            int q1 = c.indexOf('"', colon + 1);
+            int q2 = -1;
+            if (q1 >= 0) {
+                // scan until closing unescaped quote
+                boolean esc = false; char ch;
+                for (int i = q1 + 1; i < c.length(); i++) {
+                    ch = c.charAt(i);
+                    if (esc) { esc = false; continue; }
+                    if (ch == '\\') { esc = true; continue; }
+                    if (ch == '"') { q2 = i; break; }
+                }
+            }
+            if (q1 >= 0 && q2 > q1) {
+                String raw = c.substring(q1 + 1, q2);
+                return trim(raw.replace("\\n", "\n").replace("\\\"", "\""), 2000);
+            }
+        }
+        // Fallback: return content trimmed
+        return trim(c, 2000);
     }
 
     /**

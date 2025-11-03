@@ -39,6 +39,7 @@ public class StoryGenerator {
         s.villageId = String.format(Locale.ROOT, "C%dxC%d", (pos.getX() >> 4), (pos.getZ() >> 4));
 
         s.cultureId = pick(CULTURES, r);
+        s.villageName = PlaceNameMaker.name(new Random(seed ^ 0x9E3779B97F4A7C15L));
         s.sex = r.nextBoolean() ? "male" : "female";
         s.nameGiven = NameMaker.given(r, s.sex);
         s.nameFamily = NameMaker.family(r);
@@ -91,28 +92,57 @@ public class StoryGenerator {
         if (r.nextDouble() < 0.4) psy.hopes.add("meilleure récolte");
         s.psychology = psy;
 
-        // Phase 2: timeline & memoriesDetailed
-        int startAge = Math.max(6, s.ageYears - 25);
-        int events = 2 + r.nextInt(3);
-        for (int i = 0; i < events; i++) {
+        // Phase 2: timeline & memoriesDetailed — full life coverage from current age down to childhood
+        s.lifeTimeline.clear();
+        java.util.HashSet<Integer> usedAges = new java.util.HashSet<>();
+        java.util.function.Consumer<VillagerStory.LifeEvent> add = ev -> { if (ev.age >= 4 && ev.age <= s.ageYears && usedAges.add(ev.age)) s.lifeTimeline.add(ev); };
+
+        // Childhood marker
+        VillagerStory.LifeEvent enf = new VillagerStory.LifeEvent();
+        enf.age = 6 + r.nextInt(Math.max(1, Math.min(5, s.ageYears-6)));
+        enf.type = "enfance_marquee";
+        enf.place = s.villageName;
+        enf.details = r.nextBoolean()?"cabane au bord du champ":"premières corvées";
+        add.accept(enf);
+
+        // Apprenticeship
+        VillagerStory.LifeEvent app = new VillagerStory.LifeEvent();
+        app.age = Math.min(s.ageYears, 12 + r.nextInt(7)); // 12–18
+        app.type = "apprentissage";
+        app.place = s.villageName;
+        app.details = r.nextBoolean()?"chez l’oncle":"à l’atelier communal";
+        add.accept(app);
+
+        // Optional migration
+        if (r.nextDouble() < 0.5 && s.ageYears > 18) {
+            VillagerStory.LifeEvent mig = new VillagerStory.LifeEvent();
+            mig.age = 16 + r.nextInt(Math.max(1, s.ageYears - 15));
+            mig.type = "migration";
+            mig.place = s.villageName;
+            mig.details = r.nextBoolean()?"vers un hameau voisin":"après une mauvaise saison";
+            add.accept(mig);
+        }
+
+        // Optional promotion or milestone
+        if (r.nextDouble() < 0.6 && s.ageYears > 20) {
+            VillagerStory.LifeEvent prom = new VillagerStory.LifeEvent();
+            prom.age = 20 + r.nextInt(Math.max(1, s.ageYears - 19));
+            prom.type = "promotion";
+            prom.place = s.villageName;
+            prom.details = r.nextBoolean()?"après des mois d’efforts":"grâce à un chantier réussi";
+            add.accept(prom);
+        }
+
+        // Random incidents
+        int extras = 2 + r.nextInt(3);
+        for (int i = 0; i < extras; i++) {
             VillagerStory.LifeEvent le = new VillagerStory.LifeEvent();
-            le.age = startAge + r.nextInt(Math.max(1, s.ageYears - startAge));
-            le.type = switch (r.nextInt(5)) {
-                case 0 -> "apprentissage";
-                case 1 -> "migration";
-                case 2 -> "promotion";
-                case 3 -> "accident";
-                default -> "incident_village";
-            };
-            le.place = s.villageId;
-            le.details = switch (le.type) {
-                case "apprentissage" -> (r.nextBoolean()?"chez l’oncle":"à l’atelier communal");
-                case "migration" -> (r.nextBoolean()?"vers un hameau voisin":"après une mauvaise saison");
-                case "promotion" -> (r.nextBoolean()?"après des mois d’efforts":"grâce à un chantier réussi");
-                case "accident" -> (r.nextBoolean()?"outil défectueux":"glissade sur échafaud");
-                default -> (r.nextBoolean()?"fête troublée":"litige au marché");
-            };
-            s.lifeTimeline.add(le);
+            le.age = 4 + r.nextInt(Math.max(1, s.ageYears - 3));
+            le.type = r.nextBoolean()?"accident":"incident_village";
+            le.place = s.villageName;
+            le.details = le.type.equals("accident") ? (r.nextBoolean()?"outil défectueux":"glissade sur échafaud")
+                    : (r.nextBoolean()?"fête troublée":"litige au marché");
+            add.accept(le);
         }
         int mcount = 1 + r.nextInt(3);
         for (int i = 0; i < mcount; i++) {

@@ -17,17 +17,25 @@ public class VillagerDialogScreen extends Screen {
     private final int villagerId;
     private final List<Entry> history = new ArrayList<>();
     private EditBox input;
-    private Button tabChatBtn, tabHistoryBtn, tabHealthBtn, debugBtn;
-    private Mode mode = Mode.CHAT;
+    private Button tabChatBtn, tabSummaryBtn, tabHistoryBtn, tabHealthBtn, debugBtn;
+    private Mode mode = Mode.SUMMARY;
     private boolean debugOverlay = false;
     private int chatScroll = 0; // lines scrolled up (0 = bottom)
     private int chatTotalLines = 0; // for clamping + scrollbar
+    private int contentScroll = 0; // generic scroll for non-chat tabs
+    private int contentTotalLines = 0; // updated each render of non-chat tabs
+    private int contentMaxLines = 0; // for scrollbar calc
     private StringBuilder streamingBuffer = null;
     private boolean isLoading = true;
+    private boolean isEnriching = true;
     private int loadingTicks = 0;
     private boolean introShown = false;
+    private boolean draggingContentScrollbar = false;
+    private boolean draggingChatScrollbar = false;
+    private int dragStartY;
+    private int dragStartScroll;
     
-    private enum Mode { CHAT, HISTORY, HEALTH }
+    private enum Mode { SUMMARY, CHAT, HISTORY, HEALTH }
     
     // Layout constants - Style RPG en bas de l'écran
     private static final int DIALOG_HEIGHT = 180;
@@ -68,15 +76,18 @@ public class VillagerDialogScreen extends Screen {
         int tabY = dialogY - 22;
         int bw = 80; int bh = 18; int gap = 8;
         int bx = dialogX;
-        tabChatBtn = Button.builder(Component.literal("Chat"), b -> { mode = Mode.CHAT; })
+        tabChatBtn = Button.builder(Component.literal("Chat"), b -> { mode = Mode.CHAT; contentScroll = 0; })
                 .bounds(bx, tabY, bw, bh).build(); bx += bw + gap;
-        tabHistoryBtn = Button.builder(Component.literal("Histoire"), b -> { mode = Mode.HISTORY; })
+        tabSummaryBtn = Button.builder(Component.literal("Résumé"), b -> { mode = Mode.SUMMARY; contentScroll = 0; })
                 .bounds(bx, tabY, bw, bh).build(); bx += bw + gap;
-        tabHealthBtn = Button.builder(Component.literal("Santé"), b -> { mode = Mode.HEALTH; })
+        tabHistoryBtn = Button.builder(Component.literal("Histoire"), b -> { mode = Mode.HISTORY; contentScroll = 0; })
+                .bounds(bx, tabY, bw, bh).build(); bx += bw + gap;
+        tabHealthBtn = Button.builder(Component.literal("Santé"), b -> { mode = Mode.HEALTH; contentScroll = 0; })
                 .bounds(bx, tabY, bw, bh).build(); bx += bw + gap;
         debugBtn = Button.builder(Component.literal("Debug"), b -> { debugOverlay = !debugOverlay; })
                 .bounds(dialogX + dialogW - 70, tabY, 70, bh).build();
         addRenderableWidget(tabChatBtn);
+        addRenderableWidget(tabSummaryBtn);
         addRenderableWidget(tabHistoryBtn);
         addRenderableWidget(tabHealthBtn);
         addRenderableWidget(debugBtn);
@@ -92,6 +103,7 @@ public class VillagerDialogScreen extends Screen {
         var cached = net.frealac.iamod.client.story.ClientStoryCache.get(villagerId);
         if (cached != null) {
             this.isLoading = false;
+            this.isEnriching = (cached.bioLong == null || cached.bioLong.isBlank());
             showIntroFromStory(cached);
         }
     }
@@ -175,6 +187,7 @@ public class VillagerDialogScreen extends Screen {
         
         if (!debugOverlay) {
             switch (mode) {
+                case SUMMARY -> renderSummary(g, textX, historyY, textW, historyH);
                 case CHAT -> renderChat(g, textX, historyY, textW, historyH);
                 case HISTORY -> renderHistory(g, textX, historyY, textW, historyH);
                 case HEALTH -> renderHealth(g, textX, historyY, textW, historyH);
@@ -183,13 +196,15 @@ public class VillagerDialogScreen extends Screen {
             renderDebugOverlay(g, dialogX + 8, dialogY + 8, dialogW - 16, DIALOG_HEIGHT - 16);
         }
         
-        // Loading spinner if story not loaded yet
+        // Loading/enrichment indicator
+        int cx = dialogX + dialogW - 180;
+        int cy = dialogY + 16;
+        char[] spin = new char[]{'|','/','-','\\'};
+        char ch = spin[(loadingTicks / 8) % spin.length];
         if (isLoading) {
-            int cx = dialogX + dialogW - 140;
-            int cy = dialogY + 16;
-            char[] spin = new char[]{'|','/','-','\\'};
-            char ch = spin[(loadingTicks / 8) % spin.length];
             g.drawString(this.font, Component.literal("§7Chargement de l'histoire... §e" + ch), cx, cy, 0xFFFFFF);
+        } else if (isEnriching) {
+            g.drawString(this.font, Component.literal("§7Affinage (IA)… §e" + ch), cx, cy, 0xFFFFFF);
         }
 
         super.render(g, mouseX, mouseY, partialTick);
@@ -241,13 +256,13 @@ public class VillagerDialogScreen extends Screen {
             lines.add(Component.literal("Aucune entrée."));
         } else {
             story.lifeTimeline.stream()
-                    .sorted((a,b) -> Integer.compare(a.age, b.age))
+                    .sorted((a,b) -> Integer.compare(b.age, a.age))
                     .forEach(ev -> {
                         String place = (ev.place!=null && !ev.place.isEmpty() && !looksLikeCoordBucket(ev.place)) ? (" à " + ev.place) : "";
                         lines.add(Component.literal("§7" + ev.age + " ans§r – " + ev.type + place + (ev.details!=null?": "+ev.details:"")));
                     });
         }
-        drawWrapped(g, lines, x, y, w, h);
+        drawWrappedScrollable(g, lines, x, y, w, h, true);
     }
 
     private void renderHealth(GuiGraphics g, int x, int y, int w, int h) {
@@ -298,7 +313,25 @@ public class VillagerDialogScreen extends Screen {
                 }
             }
         }
-        drawWrapped(g, lines, x, y, w, h);
+        drawWrappedScrollable(g, lines, x, y, w, h, true);
+    }
+
+    private void renderSummary(GuiGraphics g, int x, int y, int w, int h) {
+        var story = net.frealac.iamod.client.story.ClientStoryCache.get(villagerId);
+        List<Component> lines = new ArrayList<>();
+        lines.add(Component.literal("§6Résumé"));
+        if (story == null) { lines.add(Component.literal("Chargement...")); drawWrapped(g, lines, x, y, w, h); return; }
+        String meta = (story.ageYears>0? (story.ageYears + " ans · ") : "") +
+                (story.profession!=null? story.profession+" · ":"") +
+                (story.cultureId!=null? story.cultureId:"");
+        if (!meta.isEmpty()) lines.add(Component.literal(meta));
+        String bio = story.bioLong != null && !story.bioLong.isBlank()? story.bioLong : story.bioBrief;
+        if (bio != null && !bio.isBlank()) lines.add(Component.literal(bio));
+        lines.add(Component.literal("§eFamille"));
+        if (story.parents != null && !story.parents.isEmpty()) lines.add(Component.literal("Parents: " + String.join(", ", story.parents)));
+        if (story.siblings != null && !story.siblings.isEmpty()) lines.add(Component.literal("Fratrie: " + String.join(", ", story.siblings)));
+        if (story.children != null && !story.children.isEmpty()) lines.add(Component.literal("Enfants: " + String.join(", ", story.children)));
+        drawWrappedScrollable(g, lines, x, y, w, h, true);
     }
 
     // Packet callbacks
@@ -308,6 +341,11 @@ public class VillagerDialogScreen extends Screen {
         if (story != null && story.bioBrief != null && !story.bioBrief.isEmpty()) {
             appendNpc(story.bioBrief);
             introShown = true;
+        }
+    }
+    public void onStoryUpdated(net.frealac.iamod.common.story.VillagerStory story) {
+        if (story != null) {
+            this.isEnriching = (story.bioLong == null || story.bioLong.isBlank());
         }
     }
 
@@ -357,6 +395,40 @@ public class VillagerDialogScreen extends Screen {
         }
     }
 
+    private void drawWrappedScrollable(GuiGraphics g, List<Component> lines, int x, int y, int w, int h, boolean drawScrollbar) {
+        List<FormattedCharSequence> wrapped = new ArrayList<>();
+        for (Component c : lines) {
+            wrapped.addAll(this.font.split(c, w));
+        }
+        int lineH = 12;
+        int maxLines = Math.max(1, h / lineH);
+        contentTotalLines = wrapped.size();
+        contentMaxLines = maxLines;
+        int maxScroll = Math.max(0, contentTotalLines - maxLines);
+        if (contentScroll > maxScroll) contentScroll = maxScroll;
+        int start = Math.max(0, contentTotalLines - maxLines - contentScroll);
+        int yy = y;
+        for (int i = start; i < wrapped.size() && yy < y + h; i++) {
+            g.drawString(this.font, wrapped.get(i), x, yy, 0xFFFFFF);
+            yy += lineH;
+        }
+        if (drawScrollbar && contentTotalLines > maxLines) {
+            int barW = 3;
+            int trackX1 = x + w - barW;
+            int trackX2 = x + w;
+            int trackY1 = y;
+            int trackY2 = y + h;
+            g.fill(trackX1, trackY1, trackX2, trackY2, 0x40000000);
+            double ratio = maxLines / (double) contentTotalLines;
+            int thumbH = Math.max(8, (int) Math.round(h * ratio));
+            int thumbMaxTravel = h - thumbH;
+            int maxSc = Math.max(1, maxScroll);
+            double scrollRatio = contentScroll / (double) maxSc;
+            int thumbY = trackY1 + (int) Math.round(thumbMaxTravel * scrollRatio);
+            g.fill(trackX1, thumbY, trackX2, thumbY + thumbH, 0x80FFFFFF);
+        }
+    }
+
     private boolean looksLikeCoordBucket(String s) {
         return s != null && s.matches("C-?\\d+xC-?\\d+");
     }
@@ -383,8 +455,87 @@ public class VillagerDialogScreen extends Screen {
                 chatScroll = Math.max(0, Math.min(maxScroll, chatScroll + dir * 3));
                 return true;
             }
+        } else {
+            // Scroll non-chat panels
+            int dialogY = this.height - DIALOG_HEIGHT - MARGIN_BOTTOM;
+            int dialogX = MARGIN_SIDE;
+            int dialogW = this.width - (MARGIN_SIDE * 2);
+            int portraitX = dialogX + PADDING;
+            int portraitY = dialogY + PADDING;
+            int textX = portraitX + PORTRAIT_SIZE + PADDING * 2;
+            int textY = portraitY + 14; // below name
+            int textW = dialogW - PORTRAIT_SIZE - PADDING * 4;
+            int textH = (DIALOG_HEIGHT - INPUT_HEIGHT - PADDING * 3) - 14;
+            if (mouseX >= textX && mouseX <= textX + textW && mouseY >= textY && mouseY <= textY + textH) {
+                int maxScroll = Math.max(0, contentTotalLines - Math.max(1, textH / 12));
+                int dir = delta > 0 ? 1 : -1;
+                contentScroll = Math.max(0, Math.min(maxScroll, contentScroll + dir * 3));
+                return true;
+            }
         }
         return super.mouseScrolled(mouseX, mouseY, delta, horizontalDelta);
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (button == 0) {
+            int dialogY = this.height - DIALOG_HEIGHT - MARGIN_BOTTOM;
+            int dialogX = MARGIN_SIDE;
+            int dialogW = this.width - (MARGIN_SIDE * 2);
+            int portraitX = dialogX + PADDING;
+            int portraitY = dialogY + PADDING;
+            int textX = portraitX + PORTRAIT_SIZE + PADDING * 2;
+            int textY = portraitY + 14;
+            int textW = dialogW - PORTRAIT_SIZE - PADDING * 4;
+            int textH = (DIALOG_HEIGHT - INPUT_HEIGHT - PADDING * 3) - 14;
+            int barW = 3;
+            int trackX1 = textX + textW - barW;
+            int trackX2 = textX + textW;
+            int trackY1 = textY;
+            int trackY2 = textY + textH;
+            if (mouseX >= trackX1 && mouseX <= trackX2 && mouseY >= trackY1 && mouseY <= trackY2) {
+                dragStartY = (int) mouseY;
+                if (mode == Mode.CHAT) { draggingChatScrollbar = true; dragStartScroll = chatScroll; }
+                else { draggingContentScrollbar = true; dragStartScroll = contentScroll; }
+                return true;
+            }
+        }
+        return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dx, double dy) {
+        if (button == 0 && (draggingChatScrollbar || draggingContentScrollbar)) {
+            int dialogY = this.height - DIALOG_HEIGHT - MARGIN_BOTTOM;
+            int dialogX = MARGIN_SIDE;
+            int dialogW = this.width - (MARGIN_SIDE * 2);
+            int portraitX = dialogX + PADDING;
+            int portraitY = dialogY + PADDING;
+            int textX = portraitX + PORTRAIT_SIZE + PADDING * 2;
+            int textY = portraitY + 14;
+            int textW = dialogW - PORTRAIT_SIZE - PADDING * 4;
+            int textH = (DIALOG_HEIGHT - INPUT_HEIGHT - PADDING * 3) - 14;
+            int h = textH;
+            int lineH = (mode == Mode.CHAT) ? 10 : 12;
+            int maxLines = Math.max(1, h / lineH);
+            int total = (mode == Mode.CHAT) ? chatTotalLines : contentTotalLines;
+            int maxScroll = Math.max(0, total - maxLines);
+            int thumbH = Math.max(8, (int) Math.round(h * (maxLines / (double) Math.max(1, total))));
+            int thumbMaxTravel = h - thumbH;
+            // Map mouseY to scroll
+            double pos = Math.min(Math.max(textY, mouseY - thumbH / 2.0), textY + thumbMaxTravel);
+            double ratio = (pos - textY) / Math.max(1.0, thumbMaxTravel);
+            int newScroll = (int) Math.round(maxScroll * ratio);
+            if (mode == Mode.CHAT) chatScroll = newScroll; else contentScroll = newScroll;
+            return true;
+        }
+        return super.mouseDragged(mouseX, mouseY, button, dx, dy);
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (button == 0) { draggingChatScrollbar = false; draggingContentScrollbar = false; }
+        return super.mouseReleased(mouseX, mouseY, button);
     }
 
     // Streaming API for AI replies
