@@ -48,12 +48,11 @@ public class NetworkHandler {
                 .consumerMainThread((msg, ctx) -> {
                     var story = msg.getStory();
                     ClientStoryCache.put(msg.getVillagerId(), story);
-                    // If dialog open, append the bioBrief line for quick visibility (Phase 1 UX)
+                    // If dialog open, mark as loaded and append intro once
                     var mc = Minecraft.getInstance();
                     if (mc.screen instanceof VillagerDialogScreen s && s.getVillagerId() == msg.getVillagerId()) {
-                        if (story != null && story.bioBrief != null && !story.bioBrief.isEmpty()) {
-                            s.appendNpc(story.bioBrief);
-                        }
+                        s.onStorySynced();
+                        s.showIntroFromStory(story);
                     }
                 })
                 .add();

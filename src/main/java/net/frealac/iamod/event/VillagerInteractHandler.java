@@ -32,16 +32,8 @@ public class VillagerInteractHandler {
         if (event.getHand() != net.minecraft.world.InteractionHand.MAIN_HAND) return;
         event.setCanceled(true); // empêche l'écran de trade vanilla
 
-        // Ensure deterministic story exists server-side and sync minimal to client
-        var story = ensureStoryAndSync(villager, sp);
-
-        // Enregistrer la conversation active
-        activeConversations.put(villager.getId(), sp.getUUID());
-        String name = (story!=null && story.nameGiven!=null? story.nameGiven: "Villageois") +
-                (story!=null && story.nameFamily!=null? " " + story.nameFamily : "");
-        String greeting = "Bonjour " + sp.getName().getString() + ", je suis " + name + ".";
-        NetworkHandler.CHANNEL.send(new OpenDialogS2CPacket(villager.getId(), greeting),
-                PacketDistributor.PLAYER.with(sp));
+        // Ensure story and kick off LLM enrichment before opening dialog
+        boostStoryThenOpen(villager, sp);
     }
 
     @SubscribeEvent
@@ -51,17 +43,8 @@ public class VillagerInteractHandler {
         if (event.getHand() != net.minecraft.world.InteractionHand.MAIN_HAND) return;
         event.setCanceled(true);
 
-        // Ensure deterministic story exists server-side and sync minimal to client
-        var story = ensureStoryAndSync(villager, sp);
-
-        // Enregistrer la conversation active
-        activeConversations.put(villager.getId(), sp.getUUID());
-        
-        String name = (story!=null && story.nameGiven!=null? story.nameGiven: "Villageois") +
-                (story!=null && story.nameFamily!=null? " " + story.nameFamily : "");
-        String greeting = "Bonjour " + sp.getName().getString() + ", je suis " + name + ".";
-        NetworkHandler.CHANNEL.send(new OpenDialogS2CPacket(villager.getId(), greeting),
-                PacketDistributor.PLAYER.with(sp));
+        // Ensure story and kick off LLM enrichment before opening dialog
+        boostStoryThenOpen(villager, sp);
     }
     
     @SubscribeEvent
@@ -123,5 +106,44 @@ public class VillagerInteractHandler {
                     PacketDistributor.PLAYER.with(sp));
         });
         return out[0];
+    }
+
+    private static void boostStoryThenOpen(Villager villager, ServerPlayer sp) {
+        var story = ensureStoryAndSync(villager, sp);
+        // Open immediately with loading spinner; enrichment continues in background
+        openDialogWithGreeting(villager, sp, story);
+        if (story != null && story.bioLong != null && !story.bioLong.isBlank()) {
+            return; // already enriched
+        }
+        java.util.concurrent.CompletableFuture
+                .supplyAsync(() -> {
+                    try {
+                        return new net.frealac.iamod.ai.OpenAiService().enrichStory(story);
+                    } catch (Exception e) {
+                        return null;
+                    }
+                })
+                .thenAccept(result -> sp.getServer().execute(() -> {
+                    villager.getCapability(VillagerStoryProvider.CAPABILITY).ifPresent(cap -> {
+                        VillagerStory s = cap.getStory();
+                        if (s != null && result != null && !result.isBlank()) {
+                            s.bioLong = result;
+                            cap.setStory(s);
+                            // sync enriched story to client
+                            NetworkHandler.CHANNEL.send(new net.frealac.iamod.network.packet.SyncVillagerStoryS2CPacket(villager.getId(), s.toJson()),
+                                    PacketDistributor.PLAYER.with(sp));
+                        }
+                    });
+                }));
+    }
+
+    private static void openDialogWithGreeting(Villager villager, ServerPlayer sp, VillagerStory story) {
+        // Enregistrer la conversation active
+        activeConversations.put(villager.getId(), sp.getUUID());
+        String name = (story!=null && story.nameGiven!=null? story.nameGiven: "Villageois") +
+                (story!=null && story.nameFamily!=null? " " + story.nameFamily : "");
+        String greeting = "Bonjour " + sp.getName().getString() + ", je suis " + name + ".";
+        NetworkHandler.CHANNEL.send(new OpenDialogS2CPacket(villager.getId(), greeting),
+                PacketDistributor.PLAYER.with(sp));
     }
 }

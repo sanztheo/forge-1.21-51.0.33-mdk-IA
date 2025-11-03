@@ -46,6 +46,7 @@ public class VillagerStory {
 
     // Generated text
     public String bioBrief;
+    public String bioLong; // Phase 2+: enriched by LLM (optional)
 
     // Phase 2: Extended fields (stored as JSON strings for simplicity in NBT)
     public Health health;              // detailed health
@@ -71,6 +72,7 @@ public class VillagerStory {
         tag.putInt("ageYears", ageYears);
         tag.putString("profession", Objects.toString(profession, ""));
         tag.putString("bioBrief", Objects.toString(bioBrief, ""));
+        if (bioLong != null && !bioLong.isEmpty()) tag.putString("bioLong", bioLong);
 
         // Lists as JSON strings for simplicity in Phase 1
         tag.putString("traits", GSON.toJson(traits));
@@ -103,6 +105,7 @@ public class VillagerStory {
         s.ageYears = tag.getInt("ageYears");
         s.profession = tag.getString("profession");
         s.bioBrief = tag.getString("bioBrief");
+        if (tag.contains("bioLong")) s.bioLong = tag.getString("bioLong");
         // Lists
         s.traits = GSON.fromJson(tag.getString("traits"), List.class);
         s.parents = GSON.fromJson(tag.getString("parents"), List.class);

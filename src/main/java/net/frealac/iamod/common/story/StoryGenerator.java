@@ -105,7 +105,13 @@ public class StoryGenerator {
                 default -> "incident_village";
             };
             le.place = s.villageId;
-            le.details = "événement: " + le.type;
+            le.details = switch (le.type) {
+                case "apprentissage" -> (r.nextBoolean()?"chez l’oncle":"à l’atelier communal");
+                case "migration" -> (r.nextBoolean()?"vers un hameau voisin":"après une mauvaise saison");
+                case "promotion" -> (r.nextBoolean()?"après des mois d’efforts":"grâce à un chantier réussi");
+                case "accident" -> (r.nextBoolean()?"outil défectueux":"glissade sur échafaud");
+                default -> (r.nextBoolean()?"fête troublée":"litige au marché");
+            };
             s.lifeTimeline.add(le);
         }
         int mcount = 1 + r.nextInt(3);

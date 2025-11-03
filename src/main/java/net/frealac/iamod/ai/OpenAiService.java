@@ -18,7 +18,7 @@ import java.util.List;
 
 public class OpenAiService {
 
-    private static final String DEFAULT_MODEL = "gpt-4o-mini";
+    private static final String DEFAULT_MODEL = "gpt-4.1-nano"; // favor small fast model by default
     private static final URI CHAT_URI = URI.create("https://api.openai.com/v1/chat/completions");
 
     private final HttpClient httpClient;
@@ -106,6 +106,81 @@ public class OpenAiService {
     }
 
     /**
+     * Enrich villager story with a concise long bio and optional openers.
+     * Returns the enriched bioLong (and may be extended in future).
+     */
+    public String enrichStory(VillagerStory s) throws IOException, InterruptedException {
+        final String apiKey = getApiKey();
+        if (apiKey == null || apiKey.isBlank()) {
+            throw new IllegalStateException("OPENAI_API_KEY manquant: définissez-le dans run/config/iamod-common.toml ou comme variable d'environnement.");
+        }
+        final String model = (Config.openAiModel == null || Config.openAiModel.isBlank()) ? DEFAULT_MODEL : Config.openAiModel;
+
+        JsonObject root = new JsonObject();
+        root.addProperty("model", model);
+
+        JsonArray messages = new JsonArray();
+        JsonObject system = new JsonObject();
+        system.addProperty("role", "system");
+        system.addProperty("content", "Tu es un auteur-narrateur. Retourne UNIQUEMENT un objet JSON compact: {\"bioLong\": string}. Résume la vie de ce villageois (120-180 mots), immersif, à la 3e personne, cohérent avec les âges/repères. Évite dates relatives ambiguës.");
+        messages.add(system);
+
+        JsonObject user = new JsonObject();
+        user.addProperty("role", "user");
+        // Build minimal JSON payload from story
+        JsonObject story = new JsonObject();
+        story.addProperty("name", (s.nameGiven==null?"":s.nameGiven) + (s.nameFamily!=null?(" "+s.nameFamily):""));
+        story.addProperty("age", s.ageYears);
+        story.addProperty("sex", s.sex);
+        story.addProperty("culture", s.cultureId);
+        story.addProperty("profession", s.profession);
+        story.addProperty("bioBrief", s.bioBrief);
+        JsonArray traits = new JsonArray();
+        if (s.traits != null) s.traits.forEach(traits::add);
+        story.add("traits", traits);
+        // timeline (age, type, place, details)
+        JsonArray tl = new JsonArray();
+        if (s.lifeTimeline != null) {
+            s.lifeTimeline.stream().sorted((a,b)->Integer.compare(a.age,b.age)).limit(6).forEach(ev -> {
+                JsonObject e = new JsonObject();
+                e.addProperty("age", ev.age);
+                if (ev.type!=null) e.addProperty("type", ev.type);
+                if (ev.place!=null) e.addProperty("place", ev.place);
+                if (ev.details!=null) e.addProperty("details", ev.details);
+                tl.add(e);
+            });
+        }
+        story.add("timeline", tl);
+        user.addProperty("content", story.toString());
+        messages.add(user);
+
+        root.add("messages", messages);
+        root.addProperty("temperature", 0.6);
+
+        HttpRequest request = HttpRequest.newBuilder(CHAT_URI)
+                .header("Authorization", "Bearer " + apiKey)
+                .header("Content-Type", "application/json")
+                .timeout(Duration.ofSeconds(45))
+                .POST(HttpRequest.BodyPublishers.ofString(root.toString(), StandardCharsets.UTF_8))
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+        if (response.statusCode() / 100 != 2) {
+            throw new IOException("OpenAI HTTP " + response.statusCode() + ": " + trim(response.body(), 300));
+        }
+        String content = extractContent(response.body());
+        // try parse JSON {"bioLong":"..."}
+        try {
+            JsonObject obj = JsonParser.parseString(content).getAsJsonObject();
+            JsonElement bioL = obj.get("bioLong");
+            if (bioL != null && !bioL.isJsonNull()) {
+                return trim(bioL.getAsString(), 2000);
+            }
+        } catch (Exception ignore) {}
+        return trim(content, 2000);
+    }
+
+    /**
      * Build a rich, compact system prompt from a VillagerStory. Keeps it concise while covering identity, traits,
      * family, memories, timeline, health and psychology highlights. The wording guides the LLM to speak in-character.
      */
@@ -133,10 +208,11 @@ public class OpenAiService {
         String timeline = "";
         if (s.lifeTimeline != null && !s.lifeTimeline.isEmpty()) {
             StringBuilder sb = new StringBuilder();
-            s.lifeTimeline.stream().sorted((a,b)->Integer.compare(a.age,b.age)).limit(3).forEach(ev -> {
+            s.lifeTimeline.stream().sorted((a,b)->Integer.compare(a.age,b.age)).limit(4).forEach(ev -> {
                 if (sb.length()>0) sb.append("; ");
                 sb.append(ev.age).append(" ans: ").append(nz(ev.type));
                 if (ev.place != null && !looksLikeCoordBucket(ev.place)) sb.append(" @").append(ev.place);
+                if (ev.details != null && !ev.details.isEmpty()) sb.append(" – ").append(ev.details);
             });
             timeline = sb.toString();
         }
@@ -158,6 +234,24 @@ public class OpenAiService {
         String likes = (s.preferences != null && s.preferences.likes != null && !s.preferences.likes.isEmpty()) ? joinComma(s.preferences.likes, 4) : "";
         String dislikes = (s.preferences != null && s.preferences.dislikes != null && !s.preferences.dislikes.isEmpty()) ? joinComma(s.preferences.dislikes, 4) : "";
 
+        // Tone guidance based on psychology/health
+        String tone = "";
+        if (s.psychology != null || s.health != null) {
+            double mood = s.psychology != null ? s.psychology.moodBaseline : 0.0;
+            double stress = s.psychology != null ? s.psychology.stress : 0.0;
+            double resilience = s.psychology != null ? s.psychology.resilience : 0.5;
+            double sleep = (s.health != null) ? s.health.sleepQuality : 0.6;
+            boolean fatigued = sleep < 0.4;
+            boolean tense = stress > 0.6;
+            boolean upbeat = mood > 0.2 && !fatigued && stress < 0.5;
+            StringBuilder t = new StringBuilder("Style: ");
+            if (fatigued) t.append("fatigué, phrases plus courtes; ");
+            if (tense) t.append("léger agacement, prudence; ");
+            if (upbeat) t.append("chaleureux, positif; ");
+            if (resilience > 0.7) t.append("résilient malgré les difficultés; ");
+            tone = t.toString();
+        }
+
         StringBuilder sys = new StringBuilder();
         sys.append("Tu es ").append(name).append(profession).append(age).append(culture).append(". ");
         if (!traits.isEmpty()) sys.append("Traits: ").append(traits).append(". ");
@@ -171,7 +265,10 @@ public class OpenAiService {
         if (!psych.isEmpty()) sys.append(psych).append(". ");
         if (!likes.isEmpty()) sys.append("Aime: ").append(likes).append(". ");
         if (!dislikes.isEmpty()) sys.append("N’aime pas: ").append(dislikes).append(". ");
-        sys.append("Parle à la première personne (\"je\"). Réponds en français, de façon immersive et brève (1–3 phrases). Ne contredis ni ta bio ni ta timeline. Évite les listes et les énumérations.");
+        if (!tone.isEmpty()) sys.append(tone);
+        sys.append("Parle à la première personne (\"je\"). Réponds en français, immersif et bref (1–3 phrases). ");
+        sys.append("Si tu mentionnes un événement passé, privilégie 'quand j’avais [âge]' plutôt que 'il y a X ans'. ");
+        sys.append("Ne contredis ni ta bio ni tes repères. Évite listes/énumérations. ");
         return sys.toString();
     }
 
