@@ -19,12 +19,17 @@ import net.minecraftforge.network.PacketDistributor;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.UUID;
 
 @Mod.EventBusSubscriber(modid = IAMOD.MOD_ID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public class VillagerInteractHandler {
     // Map pour suivre les villageois en conversation : ID du villageois -> UUID du joueur
     private static final Map<Integer, UUID> activeConversations = new HashMap<>();
+    // Déduplication affinage IA: PNJ UUID -> future en cours
+    private static final ConcurrentHashMap<UUID, CompletableFuture<?>> REFINING = new ConcurrentHashMap<>();
     @SubscribeEvent
     public static void onEntityInteract(PlayerInteractEvent.EntityInteract event) {
         if (!(event.getTarget() instanceof Villager villager)) return;
@@ -112,29 +117,31 @@ public class VillagerInteractHandler {
         var story = ensureStoryAndSync(villager, sp);
         // Open immediately with loading spinner; enrichment continues in background
         openDialogWithGreeting(villager, sp, story);
-        if (story != null && story.bioLong != null && !story.bioLong.isBlank()) {
-            return; // already enriched
-        }
-        java.util.concurrent.CompletableFuture
-                .supplyAsync(() -> {
+        // Launch refinement call (JSON strict) to enrich bioLong, timeline and psychology
+        UUID vid = villager.getUUID();
+        REFINING.computeIfAbsent(vid, k ->
+                java.util.concurrent.CompletableFuture.supplyAsync(() -> {
                     try {
-                        return new net.frealac.iamod.ai.OpenAiService().enrichStory(story);
+                        return new net.frealac.iamod.ai.OpenAiService().refineStoryJson(story);
                     } catch (Exception e) {
                         return null;
                     }
                 })
-                .thenAccept(result -> sp.getServer().execute(() -> {
+                .orTimeout(20, TimeUnit.SECONDS)
+                .exceptionally(x -> null)
+                .thenAccept(json -> sp.getServer().execute(() -> {
                     villager.getCapability(VillagerStoryProvider.CAPABILITY).ifPresent(cap -> {
                         VillagerStory s = cap.getStory();
-                        if (s != null && result != null && !result.isBlank()) {
-                            s.bioLong = result;
+                        if (s != null && json != null) {
+                            net.frealac.iamod.ai.StoryRefiner.apply(s, json);
                             cap.setStory(s);
-                            // sync enriched story to client
                             NetworkHandler.CHANNEL.send(new net.frealac.iamod.network.packet.SyncVillagerStoryS2CPacket(villager.getId(), s.toJson()),
                                     PacketDistributor.PLAYER.with(sp));
                         }
                     });
-                }));
+                    REFINING.remove(vid);
+                }))
+        );
     }
 
     private static void openDialogWithGreeting(Villager villager, ServerPlayer sp, VillagerStory story) {

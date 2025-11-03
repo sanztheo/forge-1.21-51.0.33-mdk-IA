@@ -293,11 +293,8 @@ Phase 3 — Graphe social & économie/légal
 - [ ] Mécaniques de commérage + souvenirs dynamiques
 - [ ] UI: onglet “Relations”
 
-Phase 4 — LLM cosmétique + cache
+Phase 4 — LLM cosmétique 
 - [ ] Batch `bioLong` et `dialogueOpeners` par village
-- [ ] Cache adressable au contenu + rate limiting
-- [ ] Fallback total offline (CFG) si réseau off
-- [ ] Paramétrage prompts par culture/langue
 
 Phase 5 — Dialogues IA & intentions
 - [ ] Moteur d’intentions (saluer, informer, se plaindre, demander, raconter souvenir, commérer)

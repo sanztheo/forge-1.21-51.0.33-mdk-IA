@@ -239,11 +239,12 @@ public class OpenAiService {
 
         root.add("messages", messages);
         root.addProperty("temperature", 0.6);
+        root.addProperty("max_tokens", 5000);
 
         HttpRequest request = HttpRequest.newBuilder(CHAT_URI)
                 .header("Authorization", "Bearer " + apiKey)
                 .header("Content-Type", "application/json")
-                .timeout(Duration.ofSeconds(45))
+                .timeout(Duration.ofSeconds(20))
                 .POST(HttpRequest.BodyPublishers.ofString(root.toString(), StandardCharsets.UTF_8))
                 .build();
 
@@ -253,6 +254,81 @@ public class OpenAiService {
         }
         String content = extractContent(response.body());
         return extractBioLongFromContent(content);
+    }
+
+    /**
+     * Ask the model to produce a strict JSON with refined fields (bioLong, timeline, psychology, health...)
+     * We request JSON-only via response_format when supported.
+     */
+    public com.google.gson.JsonObject refineStoryJson(VillagerStory s) throws IOException, InterruptedException {
+        final String apiKey = getApiKey();
+        if (apiKey == null || apiKey.isBlank()) {
+            throw new IllegalStateException("OPENAI_API_KEY manquant: définissez-le dans run/config/iamod-common.toml ou comme variable d'environnement.");
+        }
+        final String model = (Config.openAiModel == null || Config.openAiModel.isBlank()) ? DEFAULT_MODEL : Config.openAiModel;
+
+        JsonObject root = new JsonObject();
+        root.addProperty("model", model);
+
+        JsonArray messages = new JsonArray();
+        JsonObject system = new JsonObject();
+        system.addProperty("role", "system");
+        system.addProperty("content",
+                "Tu es un raffineur de données de PNJ. Retourne STRICTEMENT un JSON valide sans texte autour, conforme à: " +
+                        "{ bioLong:string, timeline:[{age:int,type:string,place?:string,details?:string}], psychology:{moodBaseline?:number,stress?:number,resilience?:number,trauma:{events:[{ageAt:int,type:string,description?:string,severity?:number}],coping?:string[]}}, health?:{allergies?:string[], phobias?:[{type:string,severity:number}] } }. " +
+                        "Respecte l'âge actuel, pas d'événements > âge. Utilise place lisible fourni. bioLong: 120-180 mots, 3e personne, cohérente."
+        );
+        messages.add(system);
+
+        JsonObject user = new JsonObject();
+        user.addProperty("role", "user");
+
+        JsonObject story = new JsonObject();
+        story.addProperty("name", (s.nameGiven==null?"":s.nameGiven) + (s.nameFamily!=null?(" "+s.nameFamily):""));
+        story.addProperty("age", s.ageYears);
+        story.addProperty("sex", s.sex);
+        story.addProperty("culture", s.cultureId);
+        story.addProperty("villageName", s.villageName);
+        story.addProperty("profession", s.profession);
+        story.addProperty("bioBrief", s.bioBrief);
+        JsonArray traits = new JsonArray(); if (s.traits!=null) s.traits.forEach(traits::add); story.add("traits", traits);
+        JsonArray tl = new JsonArray();
+        if (s.lifeTimeline != null) {
+            s.lifeTimeline.stream().sorted((a,b)->Integer.compare(a.age,b.age)).limit(8).forEach(ev -> {
+                JsonObject e = new JsonObject(); e.addProperty("age", ev.age);
+                if (ev.type!=null) e.addProperty("type", ev.type);
+                if (ev.place!=null) e.addProperty("place", ev.place);
+                if (ev.details!=null) e.addProperty("details", ev.details);
+                tl.add(e);
+            });
+        }
+        story.add("timeline", tl);
+        user.addProperty("content", story.toString());
+        messages.add(user);
+
+        root.add("messages", messages);
+        root.addProperty("temperature", 0.6);
+        // Ask for JSON output format when supported by the model
+        JsonObject respFormat = new JsonObject(); respFormat.addProperty("type", "json_object");
+        root.add("response_format", respFormat);
+
+        HttpRequest request = HttpRequest.newBuilder(CHAT_URI)
+                .header("Authorization", "Bearer " + apiKey)
+                .header("Content-Type", "application/json")
+                .timeout(Duration.ofSeconds(45))
+                .POST(HttpRequest.BodyPublishers.ofString(root.toString(), StandardCharsets.UTF_8))
+                .build();
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+        if (response.statusCode() / 100 != 2) {
+            throw new IOException("OpenAI HTTP " + response.statusCode() + ": " + trim(response.body(), 300));
+        }
+        String content = extractContent(response.body());
+        var obj = JsonUtils.tryParseStrictObject(content);
+        if (obj == null) {
+            // fallback: try to wrap content
+            try { obj = com.google.gson.JsonParser.parseString(content).getAsJsonObject(); } catch (Exception ignore) {}
+        }
+        return obj;
     }
 
     private static String extractBioLongFromContent(String content) {
