@@ -5,6 +5,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import net.frealac.iamod.Config;
+import net.frealac.iamod.common.story.VillagerStory;
 
 import java.io.IOException;
 import java.net.URI;
@@ -102,6 +103,88 @@ public class OpenAiService {
             throw new IOException("OpenAI HTTP " + response.statusCode() + ": " + trim(response.body(), 300));
         }
         return extractContent(response.body());
+    }
+
+    /**
+     * Build a rich, compact system prompt from a VillagerStory. Keeps it concise while covering identity, traits,
+     * family, memories, timeline, health and psychology highlights. The wording guides the LLM to speak in-character.
+     */
+    public static String buildSystemPromptFromStory(VillagerStory s) {
+        if (s == null) {
+            return "Tu es un villageois amical. Réponds en français, immersif, concis, à la première personne (\"je\").";
+        }
+
+        String name = nz(s.nameGiven) + (s.nameFamily != null ? (" " + s.nameFamily) : "");
+        String age = s.ageYears > 0 ? (", " + s.ageYears + " ans") : "";
+        String culture = s.cultureId != null ? (" (culture: " + s.cultureId + ")") : "";
+        String profession = s.profession != null ? (" un(e) " + s.profession) : " un(e) habitant(e)";
+
+        String traits = s.traits != null && !s.traits.isEmpty() ? joinComma(s.traits, 8) : "";
+        String parents = s.parents != null && !s.parents.isEmpty() ? joinComma(s.parents, 3) : "";
+        String children = s.children != null && !s.children.isEmpty() ? joinComma(s.children, 4) : "";
+        String siblings = s.siblings != null && !s.siblings.isEmpty() ? joinComma(s.siblings, 3) : "";
+
+        String memories = s.memoriesDetailed != null && !s.memoriesDetailed.isEmpty()
+                ? s.memoriesDetailed.stream().limit(3)
+                .map(m -> (m.topic != null ? m.topic : "souvenir") + (m.place != null ? (" @" + m.place) : ""))
+                .reduce((a,b) -> a + "; " + b).orElse("")
+                : (s.memories != null ? trim(joinSemi(s.memories, 3), 160) : "");
+
+        String timeline = "";
+        if (s.lifeTimeline != null && !s.lifeTimeline.isEmpty()) {
+            StringBuilder sb = new StringBuilder();
+            s.lifeTimeline.stream().sorted((a,b)->Integer.compare(a.age,b.age)).limit(3).forEach(ev -> {
+                if (sb.length()>0) sb.append("; ");
+                sb.append(ev.age).append(" ans: ").append(nz(ev.type));
+                if (ev.place != null && !looksLikeCoordBucket(ev.place)) sb.append(" @").append(ev.place);
+            });
+            timeline = sb.toString();
+        }
+
+        String health = "";
+        if (s.health != null) {
+            int wounds = s.health.wounds != null ? s.health.wounds.size() : 0;
+            String allergies = (s.health.allergies != null && !s.health.allergies.isEmpty()) ? joinComma(s.health.allergies, 3) : "aucune";
+            health = "santé: blessures=" + wounds + ", allergies=" + allergies;
+        }
+
+        String psych = "";
+        if (s.psychology != null) {
+            int tcount = (s.psychology.trauma != null && s.psychology.trauma.events != null) ? s.psychology.trauma.events.size() : 0;
+            psych = String.format("psychologie: humeur=%.2f, stress=%.2f, résilience=%.2f, traumas=%d",
+                    s.psychology.moodBaseline, s.psychology.stress, s.psychology.resilience, tcount);
+        }
+
+        String likes = (s.preferences != null && s.preferences.likes != null && !s.preferences.likes.isEmpty()) ? joinComma(s.preferences.likes, 4) : "";
+        String dislikes = (s.preferences != null && s.preferences.dislikes != null && !s.preferences.dislikes.isEmpty()) ? joinComma(s.preferences.dislikes, 4) : "";
+
+        StringBuilder sys = new StringBuilder();
+        sys.append("Tu es ").append(name).append(profession).append(age).append(culture).append(". ");
+        if (!traits.isEmpty()) sys.append("Traits: ").append(traits).append(". ");
+        if (s.bioBrief != null && !s.bioBrief.isEmpty()) sys.append("Bio: ").append(trim(s.bioBrief, 180)).append(" ");
+        if (!parents.isEmpty()) sys.append("Parents: ").append(parents).append(". ");
+        if (!siblings.isEmpty()) sys.append("Fratrie: ").append(siblings).append(". ");
+        if (!children.isEmpty()) sys.append("Enfants: ").append(children).append(". ");
+        if (!memories.isEmpty()) sys.append("Souvenirs: ").append(memories).append(". ");
+        if (!timeline.isEmpty()) sys.append("Repères: ").append(timeline).append(". ");
+        if (!health.isEmpty()) sys.append(health).append(". ");
+        if (!psych.isEmpty()) sys.append(psych).append(". ");
+        if (!likes.isEmpty()) sys.append("Aime: ").append(likes).append(". ");
+        if (!dislikes.isEmpty()) sys.append("N’aime pas: ").append(dislikes).append(". ");
+        sys.append("Parle à la première personne (\"je\"). Réponds en français, de façon immersive et brève (1–3 phrases). Ne contredis ni ta bio ni ta timeline. Évite les listes et les énumérations.");
+        return sys.toString();
+    }
+
+    private static boolean looksLikeCoordBucket(String s) {
+        return s != null && s.matches("C-?\\d+xC-?\\d+");
+    }
+
+    private static String nz(String s) { return s == null ? "" : s; }
+    private static String joinComma(java.util.List<String> list, int max) {
+        return list.stream().limit(max).reduce((a,b)->a+", "+b).orElse("");
+    }
+    private static String joinSemi(java.util.List<String> list, int max) {
+        return list.stream().limit(max).reduce((a,b)->a+"; "+b).orElse("");
     }
 
     private static String getApiKey() {

@@ -33,11 +33,13 @@ public class VillagerInteractHandler {
         event.setCanceled(true); // empêche l'écran de trade vanilla
 
         // Ensure deterministic story exists server-side and sync minimal to client
-        ensureStoryAndSync(villager, sp);
+        var story = ensureStoryAndSync(villager, sp);
 
         // Enregistrer la conversation active
         activeConversations.put(villager.getId(), sp.getUUID());
-        String greeting = "Bonjour " + sp.getName().getString() + ".";
+        String name = (story!=null && story.nameGiven!=null? story.nameGiven: "Villageois") +
+                (story!=null && story.nameFamily!=null? " " + story.nameFamily : "");
+        String greeting = "Bonjour " + sp.getName().getString() + ", je suis " + name + ".";
         NetworkHandler.CHANNEL.send(new OpenDialogS2CPacket(villager.getId(), greeting),
                 PacketDistributor.PLAYER.with(sp));
     }
@@ -50,12 +52,14 @@ public class VillagerInteractHandler {
         event.setCanceled(true);
 
         // Ensure deterministic story exists server-side and sync minimal to client
-        ensureStoryAndSync(villager, sp);
+        var story = ensureStoryAndSync(villager, sp);
 
         // Enregistrer la conversation active
         activeConversations.put(villager.getId(), sp.getUUID());
         
-        String greeting = "Bonjour " + sp.getName().getString() + ".";
+        String name = (story!=null && story.nameGiven!=null? story.nameGiven: "Villageois") +
+                (story!=null && story.nameFamily!=null? " " + story.nameFamily : "");
+        String greeting = "Bonjour " + sp.getName().getString() + ", je suis " + name + ".";
         NetworkHandler.CHANNEL.send(new OpenDialogS2CPacket(villager.getId(), greeting),
                 PacketDistributor.PLAYER.with(sp));
     }
@@ -103,22 +107,21 @@ public class VillagerInteractHandler {
         activeConversations.remove(villagerId);
     }
 
-    private static void ensureStoryAndSync(Villager villager, ServerPlayer sp) {
+    private static VillagerStory ensureStoryAndSync(Villager villager, ServerPlayer sp) {
         var level = (net.minecraft.server.level.ServerLevel) villager.level();
 
         // Capability must exist; story is server-authoritative and persisted on the entity NBT
+        final VillagerStory[] out = new VillagerStory[1];
         villager.getCapability(VillagerStoryProvider.CAPABILITY).ifPresent(cap -> {
             VillagerStory story = cap.getStory();
             if (story == null) {
-                // Generate deterministically and store on capability
                 story = StoryGenerator.generate(level, villager);
                 cap.setStory(story);
             }
-            // Sync minimal story to the client (bioBrief and basic fields) by sending the whole JSON for now
-            NetworkHandler.CHANNEL.send(
-                    new SyncVillagerStoryS2CPacket(villager.getId(), story.toJson()),
-                    PacketDistributor.PLAYER.with(sp)
-            );
+            out[0] = story;
+            NetworkHandler.CHANNEL.send(new SyncVillagerStoryS2CPacket(villager.getId(), story.toJson()),
+                    PacketDistributor.PLAYER.with(sp));
         });
+        return out[0];
     }
 }

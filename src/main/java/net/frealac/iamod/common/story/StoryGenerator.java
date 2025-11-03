@@ -12,17 +12,18 @@ import java.util.Random;
  * Phase 1 deterministic generator seeded by worldSeed ^ villagerUUID bits ^ coarse position bucket.
  */
 public class StoryGenerator {
-    private static final List<String> CULTURES = List.of("plaine_nord", "colline_est", "marais_ouest", "montagne_sud");
-    private static final List<String> PROFESSIONS = List.of(
-            "farmer", "fisherman", "shepherd", "fletcher", "librarian", "cartographer",
-            "cleric", "armorer", "weaponsmith", "toolsmith", "mason", "leatherworker", "butcher");
+    private static final List<String> CULTURES = List.of(
+            "plaine_nord", "colline_est", "marais_ouest", "montagne_sud",
+            "riviere_ouest", "forêt_grise", "cote_vent", "hauts_plateaux", "delta_saumatre",
+            "caverne_silex", "lande_cendree", "archipel_brisé", "steppe_doree", "toundra_bleue",
+            "desert_ambre", "bassin_azur", "falaises_ocre", "verger_mousse", "tourbiere_fauve", "plaine_argile");
+    private static final List<String> PROF_ROOTS = List.of("forg", "bouch", "moul", "tuil", "cord", "pêch", "chass", "terr", "charpent", "maç", "tisser", "menuis", "meun", "briol", "lapidar", "herbor", "apicul", "vigner", "pot", "charr", "tann", "sell", "criv");
+    private static final List<String> PROF_SUFFIX = List.of("er", "eur", "ier", "iste", "on", "eur", "euse", "rin", "in");
     private static final List<String> TRAITS = List.of(
             "généreux", "prudent", "rancunier", "loyal", "superstitieux", "méticuleux", "bavard", "timide",
-            "courageux", "mélancolique", "ambitieux", "farceur", "patient", "curieux");
-    private static final List<String> GIVEN_NAMES = List.of(
-            "Maelle", "Éloi", "Bastien", "Agnès", "Lina", "Théo", "Luc", "Esther", "Jules", "Noé", "Clara", "Sacha");
-    private static final List<String> FAMILY_NAMES = List.of(
-            "Durand", "Dubreuil", "Martin", "Petit", "Bernard", "Robert", "Richard", "Moreau", "Simon", "Laurent");
+            "courageux", "mélancolique", "ambitieux", "farceur", "patient", "curieux", "altruiste", "sarcastique",
+            "susceptible", "perfectionniste", "taciturne", "énergique", "rêveur", "stoïque", "franc", "calculateur",
+            "créatif", "réservé", "empathique", "rigide", "flexible", "maniaque", "désinvolte", "moqueur", "protecteur");
 
     public static VillagerStory generate(ServerLevel level, Villager villager) {
         long worldSeed = level.getSeed();
@@ -38,23 +39,23 @@ public class StoryGenerator {
         s.villageId = String.format(Locale.ROOT, "C%dxC%d", (pos.getX() >> 4), (pos.getZ() >> 4));
 
         s.cultureId = pick(CULTURES, r);
-        s.nameGiven = pick(GIVEN_NAMES, r);
-        s.nameFamily = pick(FAMILY_NAMES, r);
         s.sex = r.nextBoolean() ? "male" : "female";
+        s.nameGiven = NameMaker.given(r, s.sex);
+        s.nameFamily = NameMaker.family(r);
         s.ageYears = 16 + r.nextInt(60); // 16..75
 
-        s.profession = pick(PROFESSIONS, r);
-        s.traits.add(pick(TRAITS, r));
-        maybeAddDistinct(s.traits, TRAITS, r);
+        s.profession = makeProfession(r);
+        s.traits.add(VarietyUtil.intensify(r, pick(TRAITS, r)));
+        VarietyUtil.addDistinct(s.traits, TRAITS, r, 2 + r.nextInt(2));
 
         // Logical family names only (Phase 1); no world entity bindings yet
-        if (r.nextDouble() < 0.85) s.parents.add(pick(GIVEN_NAMES, r) + " " + s.nameFamily);
-        if (r.nextDouble() < 0.85) s.parents.add(pick(GIVEN_NAMES, r) + " " + s.nameFamily);
+        if (r.nextDouble() < 0.85) s.parents.add(NameMaker.given(r, r.nextBoolean()?"male":"female") + " " + s.nameFamily);
+        if (r.nextDouble() < 0.85) s.parents.add(NameMaker.given(r, r.nextBoolean()?"male":"female") + " " + s.nameFamily);
         int childCount = r.nextInt(3); // 0..2 children
         for (int i = 0; i < childCount; i++) {
-            s.children.add(pick(GIVEN_NAMES, r) + " " + s.nameFamily);
+            s.children.add(NameMaker.given(r, r.nextBoolean()?"male":"female") + " " + s.nameFamily);
         }
-        if (r.nextDouble() < 0.4) s.siblings.add(pick(GIVEN_NAMES, r) + " " + s.nameFamily);
+        if (r.nextDouble() < 0.4) s.siblings.add(NameMaker.given(r, r.nextBoolean()?"male":"female") + " " + s.nameFamily);
 
         // Memories (short)
         s.memories.add("a aidé au marché du village");
@@ -135,16 +136,16 @@ public class StoryGenerator {
         return s;
     }
 
-    private static <T> T pick(List<T> list, Random r) {
-        return list.get(r.nextInt(list.size()));
-    }
-
-    private static void maybeAddDistinct(List<String> out, List<String> pool, Random r) {
-        if (r.nextDouble() < 0.6) {
-            String c;
-            int guard = 0;
-            do { c = pick(pool, r); guard++; } while (out.contains(c) && guard < 6);
-            if (!out.contains(c)) out.add(c);
-        }
+    private static <T> T pick(List<T> list, Random r) { return list.get(r.nextInt(list.size())); }
+    private static String makeProfession(Random r) {
+        if (r.nextDouble() < 0.6) return pick(List.of(
+                "farmer", "fisherman", "shepherd", "fletcher", "librarian", "cartographer",
+                "cleric", "armorer", "weaponsmith", "toolsmith", "mason", "leatherworker", "butcher"), r);
+        String root = pick(PROF_ROOTS, r);
+        String suf = pick(PROF_SUFFIX, r);
+        String prof = root + suf;
+        // gender agreement adjustments minimal
+        if (suf.equals("euse")) prof = root + "eur"; // default to masculine form
+        return prof;
     }
 }

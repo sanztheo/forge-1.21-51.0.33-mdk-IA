@@ -20,6 +20,8 @@ public class VillagerDialogScreen extends Screen {
     private Button tabChatBtn, tabHistoryBtn, tabHealthBtn, debugBtn;
     private Mode mode = Mode.CHAT;
     private boolean debugOverlay = false;
+    private int chatScroll = 0; // lines scrolled up (0 = bottom)
+    private StringBuilder streamingBuffer = null;
     
     private enum Mode { CHAT, HISTORY, HEALTH }
     
@@ -149,20 +151,24 @@ public class VillagerDialogScreen extends Screen {
         int textW = dialogW - PORTRAIT_SIZE - PADDING * 4;
         int textH = DIALOG_HEIGHT - INPUT_HEIGHT - PADDING * 3;
         
-        // Nom du villageois en haut
-        g.drawString(this.font, "§6§lVillageois", textX, textY, 0xFFFFFF);
+        // Nom du villageois en haut (prénom + nom)
+        var storyHeader = net.frealac.iamod.client.story.ClientStoryCache.get(villagerId);
+        String header = (storyHeader != null && storyHeader.nameGiven != null) ?
+                ("§6§l" + storyHeader.nameGiven + (storyHeader.nameFamily!=null?" "+storyHeader.nameFamily:"")) :
+                "§6§lVillageois";
+        g.drawString(this.font, header, textX, textY, 0xFFFFFF);
         
         // Zone de scrolling & content area
         int historyY = textY + 14;
         int historyH = textH - 14;
         
-        switch (mode) {
-            case CHAT -> renderChat(g, textX, historyY, textW, historyH);
-            case HISTORY -> renderHistory(g, textX, historyY, textW, historyH);
-            case HEALTH -> renderHealth(g, textX, historyY, textW, historyH);
-        }
-        
-        if (debugOverlay) {
+        if (!debugOverlay) {
+            switch (mode) {
+                case CHAT -> renderChat(g, textX, historyY, textW, historyH);
+                case HISTORY -> renderHistory(g, textX, historyY, textW, historyH);
+                case HEALTH -> renderHealth(g, textX, historyY, textW, historyH);
+            }
+        } else {
             renderDebugOverlay(g, dialogX + 8, dialogY + 8, dialogW - 16, DIALOG_HEIGHT - 16);
         }
         
@@ -180,7 +186,7 @@ public class VillagerDialogScreen extends Screen {
         }
         int lineH = 10;
         int maxLines = Math.max(1, h / lineH);
-        int start = Math.max(0, wrapped.size() - maxLines);
+        int start = Math.max(0, wrapped.size() - maxLines - chatScroll);
         int yy = y;
         for (int i = start; i < wrapped.size() && yy < y + h; i++) {
             g.drawString(this.font, wrapped.get(i), x, yy, 0xFFFFFF);
@@ -197,7 +203,10 @@ public class VillagerDialogScreen extends Screen {
         } else {
             story.lifeTimeline.stream()
                     .sorted((a,b) -> Integer.compare(a.age, b.age))
-                    .forEach(ev -> lines.add(Component.literal("§7" + ev.age + " ans§r – " + ev.type + (ev.place!=null?" @"+ev.place:"") + (ev.details!=null?": "+ev.details:""))));
+                    .forEach(ev -> {
+                        String place = (ev.place!=null && !ev.place.isEmpty() && !looksLikeCoordBucket(ev.place)) ? (" à " + ev.place) : "";
+                        lines.add(Component.literal("§7" + ev.age + " ans§r – " + ev.type + place + (ev.details!=null?": "+ev.details:"")));
+                    });
         }
         drawWrapped(g, lines, x, y, w, h);
     }
@@ -227,7 +236,14 @@ public class VillagerDialogScreen extends Screen {
     }
 
     private void renderDebugOverlay(GuiGraphics g, int x, int y, int w, int h) {
-        g.fill(x, y, x + w, y + h, 0xC0000000);
+        // Opaque background to avoid underlay bleed
+        g.fill(x, y, x + w, y + h, 0xF0000000);
+        // Border
+        int border = 0xFF8B7355;
+        g.fill(x-1, y-1, x + w + 1, y, border);
+        g.fill(x-1, y + h, x + w + 1, y + h + 1, border);
+        g.fill(x-1, y, x, y + h, border);
+        g.fill(x + w, y, x + w + 1, y + h, border);
         var story = net.frealac.iamod.client.story.ClientStoryCache.get(villagerId);
         if (story == null) {
             g.drawString(this.font, Component.literal("(debug) story indisponible"), x + 6, y + 6, 0xFFFFFF);
@@ -255,7 +271,7 @@ public class VillagerDialogScreen extends Screen {
         for (Component c : lines) {
             wrapped.addAll(this.font.split(c, w));
         }
-        int lineH = 10;
+        int lineH = 12;
         int maxLines = Math.max(1, h / lineH);
         int start = 0;
         int yy = y;
@@ -264,6 +280,37 @@ public class VillagerDialogScreen extends Screen {
             yy += lineH;
         }
     }
+
+    private boolean looksLikeCoordBucket(String s) {
+        return s != null && s.matches("C-?\\d+xC-?\\d+");
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double delta, double horizontalDelta) {
+        if (mode == Mode.CHAT) {
+            int dir = delta > 0 ? 1 : -1; // up = positive
+            chatScroll = Math.max(0, chatScroll + dir * 3); // increase -> scroll up
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, delta, horizontalDelta);
+    }
+
+    // Streaming API for AI replies
+    public void beginAiStream() {
+        if (streamingBuffer == null) {
+            streamingBuffer = new StringBuilder();
+            history.add(Entry.npc(""));
+        }
+    }
+    public void appendAiStream(String chunk) {
+        if (streamingBuffer == null) beginAiStream();
+        streamingBuffer.append(chunk);
+        // update last entry text
+        if (!history.isEmpty()) {
+            history.get(history.size()-1).text = streamingBuffer.toString();
+        }
+    }
+    public void endAiStream() { streamingBuffer = null; }
 
     private void send() {
         String txt = input.getValue().trim();
@@ -297,7 +344,7 @@ public class VillagerDialogScreen extends Screen {
     public boolean shouldCloseOnEsc() { return true; }
 
     private static class Entry {
-        final boolean isNpc; final String text;
+        final boolean isNpc; String text;
         private Entry(boolean isNpc, String text) { this.isNpc = isNpc; this.text = text; }
         static Entry npc(String t) { return new Entry(true, t); }
         static Entry player(String t) { return new Entry(false, t); }

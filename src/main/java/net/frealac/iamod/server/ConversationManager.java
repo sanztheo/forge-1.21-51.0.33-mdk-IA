@@ -13,12 +13,10 @@ public class ConversationManager {
     public record Key(UUID player, int villagerId) {}
     private static final ConcurrentHashMap<Key, Conversation> SESSIONS = new ConcurrentHashMap<>();
 
-    private static final ChatMessage SYSTEM = ChatMessage.system(
-            "Tu es un villageois de Minecraft amical et concis. Réponds en français si possible. Reste immersif, pas de commandes administratives.");
-
     private static class Conversation {
         final List<ChatMessage> history = new ArrayList<>();
         Instant lastAccess = Instant.now();
+        boolean hasSystem = false;
     }
 
     public static Key key(UUID player, int villagerId) {
@@ -27,7 +25,6 @@ public class ConversationManager {
 
     private static Conversation fresh() {
         var c = new Conversation();
-        c.history.add(SYSTEM);
         return c;
     }
 
@@ -53,5 +50,13 @@ public class ConversationManager {
         conv.history.add(ChatMessage.assistant(assistantText));
         conv.lastAccess = Instant.now();
     }
-}
 
+    public static void ensureSystem(Key key, String systemPrompt) {
+        var conv = getOrCreate(key);
+        if (!conv.hasSystem) {
+            conv.history.add(ChatMessage.system(systemPrompt));
+            conv.hasSystem = true;
+            conv.lastAccess = Instant.now();
+        }
+    }
+}

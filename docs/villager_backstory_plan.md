@@ -279,11 +279,12 @@ Phase 1 — Socle déterministe (offline)
   - [ ] Validation: checksum identique sur 2 clients (tests)
 
 Phase 2 — Chronologie & santé/trauma
-- [ ] Timeline de vie complète (`life.timeline`)
-- [ ] Santé: blessures, cicatrices, allergies, addictions
-- [ ] Psychologie: traumatismes, coping, humeur/stress
-- [ ] Routines + préférences
-- [ ] UI: onglet “Histoire” + “Santé”
+- [x] Timeline de vie (événements clés) → `lifeTimeline`
+- [x] Santé: blessures, allergies, phobies, stamina/sommeil
+- [x] Psychologie: traumatismes (événements), coping, humeur/stress/résilience
+- [x] Routines + préférences
+- [x] `memoriesDetailed` (moodDelta, importance, tags)
+- [x] UI: onglets “Histoire” + “Santé” et bouton “Debug” (overlay story complète)
   
 Phase 3 — Graphe social & économie/légal
 - [ ] Relations détaillées (opinions dynamiques)
@@ -317,18 +318,32 @@ Phase 5 — Dialogues IA & intentions
   - `VillageStoryData` (clé `iamod_villager_stories`)
   - Map: `UUID PNJ -> story NBT`
 
-- Générateur déterministe (implémenté Phase 1)
+- Générateur déterministe (implémenté Phase 2)
   - `StoryGenerator.generate(ServerLevel, Villager)`
-  - Seed: `worldSeed ^ villagerUUID ^ (chunkX<<32 ^ chunkZ)`
-  - Génère: culture, nom, sexe, âge, métier, 1–2 traits, famille simple, 1–3 souvenirs, `bioBrief`
+  - Seed: `worldSeed ^ villagerUUID ^ (chunkX<<32 ^ chunkZ)` (stable)
+  - Noms: `NameMaker` (combinaison syllabique) → milliers de prénoms/noms plausibles
+  - Métiers: racines+suffixes + métiers vanilla → centaines de combinaisons
+  - Traits: pool élargi + intensifieurs (VarietyUtil)
+  - Cultures: liste étendue (20+)
+  - Génère: identité (culture/nom/sexe/âge), métier, 2–4 traits, famille, 1–3 souvenirs simples,
+    santé, psychologie (traumas), `lifeTimeline`, `memoriesDetailed`, `routines`, `preferences`, `bioBrief`
 
-- UI (Phase 1)
-  - `VillagerDialogScreen`: le serveur envoie la story; le client affiche `bioBrief` comme ligne NPC au démarrage de la conversation
-  - Les onglets “Résumé/Famille/Histoire/Santé/Relations” seront ajoutés en Phase 2+
+- UI (Phase 2)
+  - `VillagerDialogScreen`: onglets “Chat”, “Histoire”, “Santé”
+  - Bouton “Debug”: overlay avec story complète (identité, famille, traits, santé, traumas, bioBrief)
+  - `bioBrief` toujours affiché à l’ouverture du dialogue
+  - Zone de chat scrollable à la molette (ancrée en bas par défaut)
+
+- Variété procédurale (nouveau)
+  - `NameMaker`: prénoms et noms via syllabes (2–3 + terminaisons)
+  - Professions: `PROF_ROOTS` + `PROF_SUFFIX` + métiers vanilla
+  - Traits: intensifieurs (`très`, `plutôt`, `vraiment`…) via `VarietyUtil`
+  - Cultures: 20+ identifiants (plaine_nord, marais_ouest, archipel_brisé, …)
 
 - Réseau (implémenté Phase 1)
   - `SyncVillagerStoryS2CPacket` (S2C): envoie JSON de `VillagerStory`
   - Réception côté client: mise en cache + append de `bioBrief` si l’écran est ouvert
+  - Streaming IA (simulé): `AiReplyStreamChunkS2CPacket` envoie des morceaux d’output; le client affiche en direct (begin/append/done)
 
 ---
 
@@ -343,6 +358,7 @@ Phase 5 — Dialogues IA & intentions
   - [ ] Timeline triée, sans chevauchement invalide
   - [ ] Sérialisation NBT/JSON ronde‑trip
   - [ ] Multijoueur: même story pour un PNJ (même UUID) sur 2 clients (checksum égal), aucune divergence après reconnexion/chargement chunk
+  - [ ] Diversité: sur 1000 PNJ avec seeds différents, taux de collisions (prénom+nom+métier+2 traits) < 5%; stabilité déterministe (mêmes seeds → mêmes sorties)
 
 ---
 
