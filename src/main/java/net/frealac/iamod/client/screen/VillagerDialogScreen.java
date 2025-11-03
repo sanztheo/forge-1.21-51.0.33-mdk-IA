@@ -105,7 +105,6 @@ public class VillagerDialogScreen extends Screen {
         var cached = net.frealac.iamod.client.story.ClientStoryCache.get(villagerId);
         if (cached != null) {
             this.isLoading = false;
-            this.isEnriching = (cached.bioLong == null || cached.bioLong.isBlank());
             showIntroFromStory(cached);
         }
     }

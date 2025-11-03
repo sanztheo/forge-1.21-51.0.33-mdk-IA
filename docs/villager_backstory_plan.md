@@ -310,7 +310,6 @@ Phase 4 — LLM cosmétique (optionnel, OFF par défaut)
 Phase 5 — Dialogues IA & intentions
 - [ ] Moteur d’intentions (saluer, informer, se plaindre, demander, raconter souvenir, commérer)
 - [ ] Sélection de sujets (contexte/humeur/souvenirs/relation)
-- [ ] Gabarits linguistiques multi‑langue
 - [ ] Ajustements d’équilibrage, diversité et QA narrative
 
 ---
