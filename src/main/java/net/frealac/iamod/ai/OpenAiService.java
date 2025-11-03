@@ -5,7 +5,6 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import net.frealac.iamod.Config;
-import net.frealac.iamod.IAMOD;
 
 import java.io.IOException;
 import java.net.URI;
@@ -14,7 +13,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.Objects;
+import java.util.List;
 
 public class OpenAiService {
 
@@ -71,6 +70,40 @@ public class OpenAiService {
         return extractContent(response.body());
     }
 
+    public String chat(List<ChatMessage> history) throws IOException, InterruptedException {
+        final String apiKey = getApiKey();
+        if (apiKey == null || apiKey.isBlank()) {
+            throw new IllegalStateException("OPENAI_API_KEY manquant: définissez-le dans run/config/iamod-common.toml ou comme variable d'environnement.");
+        }
+        final String model = (Config.openAiModel == null || Config.openAiModel.isBlank()) ? DEFAULT_MODEL : Config.openAiModel;
+
+        JsonObject root = new JsonObject();
+        root.addProperty("model", model);
+
+        JsonArray messages = new JsonArray();
+        for (ChatMessage m : history) {
+            JsonObject j = new JsonObject();
+            j.addProperty("role", m.role);
+            j.addProperty("content", m.content);
+            messages.add(j);
+        }
+        root.add("messages", messages);
+        root.addProperty("temperature", 0.7);
+
+        HttpRequest request = HttpRequest.newBuilder(CHAT_URI)
+                .header("Authorization", "Bearer " + apiKey)
+                .header("Content-Type", "application/json")
+                .timeout(Duration.ofSeconds(45))
+                .POST(HttpRequest.BodyPublishers.ofString(root.toString(), StandardCharsets.UTF_8))
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+        if (response.statusCode() / 100 != 2) {
+            throw new IOException("OpenAI HTTP " + response.statusCode() + ": " + trim(response.body(), 300));
+        }
+        return extractContent(response.body());
+    }
+
     private static String getApiKey() {
         // Priorité au fichier de config Forge (run/config/iamod-common.toml), sinon variable d'environnement
         String fromConfig = Config.openAiApiKey;
@@ -107,4 +140,3 @@ public class OpenAiService {
         return s.substring(0, Math.max(0, max)) + "…";
     }
 }
-

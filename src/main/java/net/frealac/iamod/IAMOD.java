@@ -42,7 +42,7 @@ public class IAMOD
 
     private void commonSetup(final FMLCommonSetupEvent event)
     {
-
+        event.enqueueWork(() -> net.frealac.iamod.network.NetworkHandler.register());
     }
 
     // Add the example block item to the building blocks tab

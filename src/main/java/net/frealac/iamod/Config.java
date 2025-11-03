@@ -30,6 +30,11 @@ public class Config
             .comment("Modèle OpenAI à utiliser (par défaut: gpt-4o-mini)")
             .define("openAiModel", "gpt-4o-mini");
 
+    public static final ForgeConfigSpec.IntValue OPENAI_SESSION_TTL_SECONDS = BUILDER
+            .comment("Durée de vie (TTL) des conversations IA en secondes",
+                    "(clé par joueur/villageois). Par défaut 900s (15 min)")
+            .defineInRange("openAiSessionTtlSeconds", 900, 60, 86400);
+
     // ====== Exemples existants ======
     private static final ForgeConfigSpec.BooleanValue LOG_DIRT_BLOCK = BUILDER
             .comment("Whether to log the dirt block on common setup")
@@ -56,6 +61,7 @@ public class Config
     public static Set<Item> items;
     public static String openAiApiKey;
     public static String openAiModel;
+    public static int openAiSessionTtlSeconds;
 
     private static boolean validateItemName(final Object obj)
     {
@@ -76,5 +82,6 @@ public class Config
 
         openAiApiKey = OPENAI_API_KEY.get();
         openAiModel = OPENAI_MODEL.get();
+        openAiSessionTtlSeconds = OPENAI_SESSION_TTL_SECONDS.get();
     }
 }
