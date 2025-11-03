@@ -1,4 +1,4 @@
-package com.example.examplemod;
+package net.frealac.iamod;
 
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
@@ -8,18 +8,29 @@ import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.config.ModConfigEvent;
 import net.minecraftforge.registries.ForgeRegistries;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 // An example config class. This is not required, but it's a good idea to have one to keep your config organized.
 // Demonstrates how to use Forge's config APIs
-@Mod.EventBusSubscriber(modid = ExampleMod.MODID, bus = Mod.EventBusSubscriber.Bus.MOD)
+@Mod.EventBusSubscriber(modid = IAMOD.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD)
 public class Config
 {
     private static final ForgeConfigSpec.Builder BUILDER = new ForgeConfigSpec.Builder();
 
+    // ====== OPENAI / IA ======
+    public static final ForgeConfigSpec.ConfigValue<String> OPENAI_API_KEY = BUILDER
+            .comment("OpenAI API key (optionnel).",
+                     "Laissez vide pour utiliser la variable d'environnement OPENAI_API_KEY.",
+                     "ATTENTION: ce fichier est dans run/config et ne doit pas être versionné.")
+            .define("openAiApiKey", "");
+
+    public static final ForgeConfigSpec.ConfigValue<String> OPENAI_MODEL = BUILDER
+            .comment("Modèle OpenAI à utiliser (par défaut: gpt-4o-mini)")
+            .define("openAiModel", "gpt-4o-mini");
+
+    // ====== Exemples existants ======
     private static final ForgeConfigSpec.BooleanValue LOG_DIRT_BLOCK = BUILDER
             .comment("Whether to log the dirt block on common setup")
             .define("logDirtBlock", true);
@@ -43,6 +54,8 @@ public class Config
     public static int magicNumber;
     public static String magicNumberIntroduction;
     public static Set<Item> items;
+    public static String openAiApiKey;
+    public static String openAiModel;
 
     private static boolean validateItemName(final Object obj)
     {
@@ -60,5 +73,8 @@ public class Config
         items = ITEM_STRINGS.get().stream()
                 .map(itemName -> ForgeRegistries.ITEMS.getValue(ResourceLocation.tryParse(itemName)))
                 .collect(Collectors.toSet());
+
+        openAiApiKey = OPENAI_API_KEY.get();
+        openAiModel = OPENAI_MODEL.get();
     }
 }
