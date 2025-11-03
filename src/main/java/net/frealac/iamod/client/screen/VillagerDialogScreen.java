@@ -3,9 +3,7 @@ package net.frealac.iamod.client.screen;
 import net.frealac.iamod.network.NetworkHandler;
 import net.frealac.iamod.network.packet.CloseDialogC2SPacket;
 import net.frealac.iamod.network.packet.PlayerMessageC2SPacket;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -18,12 +16,14 @@ public class VillagerDialogScreen extends Screen {
     private final int villagerId;
     private final List<Entry> history = new ArrayList<>();
     private EditBox input;
-    private Button send;
-    private int panelX, panelY, panelW, panelH;
-
-    private static final int PADDING = 8;
-    private static final int INPUT_H = 20;
-    private static final int BUTTON_W = 60;
+    
+    // Layout constants - Style RPG en bas de l'écran
+    private static final int DIALOG_HEIGHT = 180;
+    private static final int PORTRAIT_SIZE = 64;
+    private static final int PADDING = 12;
+    private static final int INPUT_HEIGHT = 24;
+    private static final int MARGIN_BOTTOM = 20;
+    private static final int MARGIN_SIDE = 40;
 
     public VillagerDialogScreen(int villagerId, String greeting) {
         super(Component.literal("Villageois"));
@@ -35,21 +35,20 @@ public class VillagerDialogScreen extends Screen {
 
     @Override
     protected void init() {
-        this.panelW = Math.min(340, this.width - 40);
-        this.panelH = Math.min(240, this.height - 40);
-        this.panelX = (this.width - panelW) / 2;
-        this.panelY = (this.height - panelH) / 2;
+        // Calculer la position de la boîte de dialogue en bas de l'écran
+        int dialogY = this.height - DIALOG_HEIGHT - MARGIN_BOTTOM;
+        int dialogX = MARGIN_SIDE;
+        int dialogW = this.width - (MARGIN_SIDE * 2);
+        
+        // Position du champ de texte en bas de la boîte
+        int inputY = dialogY + DIALOG_HEIGHT - PADDING - INPUT_HEIGHT;
+        int inputX = dialogX + PORTRAIT_SIZE + PADDING * 2;
+        int inputW = dialogW - PORTRAIT_SIZE - PADDING * 3;
 
-        int inputY = panelY + panelH - PADDING - INPUT_H;
-        int inputX = panelX + PADDING;
-        int inputW = panelW - (PADDING * 3) - BUTTON_W;
-
-        input = new EditBox(this.font, inputX, inputY, inputW, INPUT_H, Component.literal("Message"));
+        input = new EditBox(this.font, inputX, inputY, inputW, INPUT_HEIGHT, Component.literal("Votre réponse..."));
         input.setMaxLength(500);
+        input.setBordered(true);
         addRenderableWidget(input);
-
-        send = Button.builder(Component.literal("Envoyer"), b -> send()).bounds(inputX + inputW + PADDING, inputY, BUTTON_W, INPUT_H).build();
-        addRenderableWidget(send);
 
         setInitialFocus(input);
         
@@ -78,42 +77,82 @@ public class VillagerDialogScreen extends Screen {
     public boolean isPauseScreen() {
         return false;
     }
-
+    
     @Override
     public void renderTransparentBackground(GuiGraphics g) {
         // Ne rien faire pour désactiver l'arrière-plan flou
     }
+    
+    @Override
+    public void renderBackground(GuiGraphics g) {
+        // Ne rien faire - empêche le rendu du flou et de l'arrière-plan
+    }
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        int bg = 0xC0101010;
-        g.fill(panelX, panelY, panelX + panelW, panelY + panelH, bg);
-
-        int titleY = panelY + PADDING;
-        g.drawCenteredString(this.font, this.title, panelX + panelW / 2, titleY, 0xFFFFFF);
-
-        int top = titleY + 12 + PADDING;
-        int bottom = panelY + panelH - (PADDING * 2) - INPUT_H;
-        int left = panelX + PADDING;
-        int right = panelX + panelW - PADDING;
-        int contentW = right - left;
-
+        // Calculer les positions
+        int dialogY = this.height - DIALOG_HEIGHT - MARGIN_BOTTOM;
+        int dialogX = MARGIN_SIDE;
+        int dialogW = this.width - (MARGIN_SIDE * 2);
+        
+        // Fond principal de la boîte de dialogue - Style RPG sombre
+        g.fill(dialogX, dialogY, dialogX + dialogW, dialogY + DIALOG_HEIGHT, 0xE0000000);
+        
+        // Bordure dorée/claire autour de la boîte
+        int borderColor = 0xFF8B7355;
+        g.fill(dialogX - 2, dialogY - 2, dialogX + dialogW + 2, dialogY, borderColor); // Top
+        g.fill(dialogX - 2, dialogY + DIALOG_HEIGHT, dialogX + dialogW + 2, dialogY + DIALOG_HEIGHT + 2, borderColor); // Bottom
+        g.fill(dialogX - 2, dialogY, dialogX, dialogY + DIALOG_HEIGHT, borderColor); // Left
+        g.fill(dialogX + dialogW, dialogY, dialogX + dialogW + 2, dialogY + DIALOG_HEIGHT, borderColor); // Right
+        
+        // Zone portrait du villageois à gauche
+        int portraitX = dialogX + PADDING;
+        int portraitY = dialogY + PADDING;
+        
+        // Fond du portrait
+        g.fill(portraitX, portraitY, portraitX + PORTRAIT_SIZE, portraitY + PORTRAIT_SIZE, 0xFF2A1810);
+        // Bordure du portrait
+        g.fill(portraitX - 1, portraitY - 1, portraitX + PORTRAIT_SIZE + 1, portraitY, 0xFF8B7355);
+        g.fill(portraitX - 1, portraitY + PORTRAIT_SIZE, portraitX + PORTRAIT_SIZE + 1, portraitY + PORTRAIT_SIZE + 1, 0xFF8B7355);
+        g.fill(portraitX - 1, portraitY, portraitX, portraitY + PORTRAIT_SIZE, 0xFF8B7355);
+        g.fill(portraitX + PORTRAIT_SIZE, portraitY, portraitX + PORTRAIT_SIZE + 1, portraitY + PORTRAIT_SIZE, 0xFF8B7355);
+        
+        // Icône du villageois (simplifié - juste un "V" pour l'instant)
+        g.drawCenteredString(this.font, "§6⚒", portraitX + PORTRAIT_SIZE / 2, portraitY + PORTRAIT_SIZE / 2 - 4, 0xFFFFFF);
+        
+        // Zone de texte à droite du portrait
+        int textX = portraitX + PORTRAIT_SIZE + PADDING * 2;
+        int textY = portraitY;
+        int textW = dialogW - PORTRAIT_SIZE - PADDING * 4;
+        int textH = DIALOG_HEIGHT - INPUT_HEIGHT - PADDING * 3;
+        
+        // Nom du villageois en haut
+        g.drawString(this.font, "§6§lVillageois", textX, textY, 0xFFFFFF);
+        
+        // Zone de scrolling pour l'historique
+        int historyY = textY + 14;
+        int historyH = textH - 14;
+        
+        // Afficher l'historique de conversation
         List<FormattedCharSequence> wrapped = new ArrayList<>();
         for (Entry e : history) {
-            var prefix = e.isNpc ? "§eVillageois: §r" : "§bMoi: §r";
-            var lines = this.font.split(Component.literal(prefix + e.text), contentW);
+            String color = e.isNpc ? "§e" : "§b";
+            String prefix = e.isNpc ? "" : "§7Vous: §r";
+            var lines = this.font.split(Component.literal(color + prefix + e.text), textW);
             wrapped.addAll(lines);
+            wrapped.add(FormattedCharSequence.EMPTY); // Ligne vide entre messages
         }
-        int lineH = 9;
-        int maxLines = Math.max(1, (bottom - top) / lineH);
+        
+        int lineH = 10;
+        int maxLines = Math.max(1, historyH / lineH);
         int start = Math.max(0, wrapped.size() - maxLines);
-
-        int y = top;
-        for (int i = start; i < wrapped.size(); i++) {
-            g.drawString(this.font, wrapped.get(i), left, y, 0xFFFFFF);
+        
+        int y = historyY;
+        for (int i = start; i < wrapped.size() && y < historyY + historyH; i++) {
+            g.drawString(this.font, wrapped.get(i), textX, y, 0xFFFFFF);
             y += lineH;
         }
-
+        
         super.render(g, mouseX, mouseY, partialTick);
     }
 
