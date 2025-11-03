@@ -3,6 +3,11 @@ package net.frealac.iamod.event;
 import net.frealac.iamod.IAMOD;
 import net.frealac.iamod.network.NetworkHandler;
 import net.frealac.iamod.network.packet.OpenDialogS2CPacket;
+import net.frealac.iamod.network.packet.SyncVillagerStoryS2CPacket;
+import net.frealac.iamod.common.story.StoryGenerator;
+import net.frealac.iamod.common.story.IVillagerStory;
+import net.frealac.iamod.common.story.VillagerStory;
+import net.frealac.iamod.common.story.VillagerStoryProvider;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.phys.Vec3;
@@ -26,10 +31,12 @@ public class VillagerInteractHandler {
         if (!(event.getEntity() instanceof ServerPlayer sp)) return;
         if (event.getHand() != net.minecraft.world.InteractionHand.MAIN_HAND) return;
         event.setCanceled(true); // empêche l'écran de trade vanilla
-        
+
+        // Ensure deterministic story exists server-side and sync minimal to client
+        ensureStoryAndSync(villager, sp);
+
         // Enregistrer la conversation active
         activeConversations.put(villager.getId(), sp.getUUID());
-        
         String greeting = "Bonjour " + sp.getName().getString() + ".";
         NetworkHandler.CHANNEL.send(new OpenDialogS2CPacket(villager.getId(), greeting),
                 PacketDistributor.PLAYER.with(sp));
@@ -41,7 +48,10 @@ public class VillagerInteractHandler {
         if (!(event.getEntity() instanceof ServerPlayer sp)) return;
         if (event.getHand() != net.minecraft.world.InteractionHand.MAIN_HAND) return;
         event.setCanceled(true);
-        
+
+        // Ensure deterministic story exists server-side and sync minimal to client
+        ensureStoryAndSync(villager, sp);
+
         // Enregistrer la conversation active
         activeConversations.put(villager.getId(), sp.getUUID());
         
@@ -91,5 +101,24 @@ public class VillagerInteractHandler {
     
     public static void endConversation(int villagerId) {
         activeConversations.remove(villagerId);
+    }
+
+    private static void ensureStoryAndSync(Villager villager, ServerPlayer sp) {
+        var level = (net.minecraft.server.level.ServerLevel) villager.level();
+
+        // Capability must exist; story is server-authoritative and persisted on the entity NBT
+        villager.getCapability(VillagerStoryProvider.CAPABILITY).ifPresent(cap -> {
+            VillagerStory story = cap.getStory();
+            if (story == null) {
+                // Generate deterministically and store on capability
+                story = StoryGenerator.generate(level, villager);
+                cap.setStory(story);
+            }
+            // Sync minimal story to the client (bioBrief and basic fields) by sending the whole JSON for now
+            NetworkHandler.CHANNEL.send(
+                    new SyncVillagerStoryS2CPacket(villager.getId(), story.toJson()),
+                    PacketDistributor.PLAYER.with(sp)
+            );
+        });
     }
 }

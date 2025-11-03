@@ -5,6 +5,7 @@ import net.frealac.iamod.network.packet.CloseDialogC2SPacket;
 import net.frealac.iamod.network.packet.PlayerMessageC2SPacket;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
@@ -16,6 +17,11 @@ public class VillagerDialogScreen extends Screen {
     private final int villagerId;
     private final List<Entry> history = new ArrayList<>();
     private EditBox input;
+    private Button tabChatBtn, tabHistoryBtn, tabHealthBtn, debugBtn;
+    private Mode mode = Mode.CHAT;
+    private boolean debugOverlay = false;
+    
+    private enum Mode { CHAT, HISTORY, HEALTH }
     
     // Layout constants - Style RPG en bas de l'écran
     private static final int DIALOG_HEIGHT = 180;
@@ -51,6 +57,23 @@ public class VillagerDialogScreen extends Screen {
         addRenderableWidget(input);
 
         setInitialFocus(input);
+        
+        // Tabs + Debug button
+        int tabY = dialogY - 22;
+        int bw = 80; int bh = 18; int gap = 8;
+        int bx = dialogX;
+        tabChatBtn = Button.builder(Component.literal("Chat"), b -> { mode = Mode.CHAT; })
+                .bounds(bx, tabY, bw, bh).build(); bx += bw + gap;
+        tabHistoryBtn = Button.builder(Component.literal("Histoire"), b -> { mode = Mode.HISTORY; })
+                .bounds(bx, tabY, bw, bh).build(); bx += bw + gap;
+        tabHealthBtn = Button.builder(Component.literal("Santé"), b -> { mode = Mode.HEALTH; })
+                .bounds(bx, tabY, bw, bh).build(); bx += bw + gap;
+        debugBtn = Button.builder(Component.literal("Debug"), b -> { debugOverlay = !debugOverlay; })
+                .bounds(dialogX + dialogW - 70, tabY, 70, bh).build();
+        addRenderableWidget(tabChatBtn);
+        addRenderableWidget(tabHistoryBtn);
+        addRenderableWidget(tabHealthBtn);
+        addRenderableWidget(debugBtn);
         
         // Bloquer les mouvements du joueur
         if (this.minecraft != null && this.minecraft.player != null) {
@@ -129,31 +152,117 @@ public class VillagerDialogScreen extends Screen {
         // Nom du villageois en haut
         g.drawString(this.font, "§6§lVillageois", textX, textY, 0xFFFFFF);
         
-        // Zone de scrolling pour l'historique
+        // Zone de scrolling & content area
         int historyY = textY + 14;
         int historyH = textH - 14;
         
-        // Afficher l'historique de conversation
+        switch (mode) {
+            case CHAT -> renderChat(g, textX, historyY, textW, historyH);
+            case HISTORY -> renderHistory(g, textX, historyY, textW, historyH);
+            case HEALTH -> renderHealth(g, textX, historyY, textW, historyH);
+        }
+        
+        if (debugOverlay) {
+            renderDebugOverlay(g, dialogX + 8, dialogY + 8, dialogW - 16, DIALOG_HEIGHT - 16);
+        }
+        
+        super.render(g, mouseX, mouseY, partialTick);
+    }
+
+    private void renderChat(GuiGraphics g, int x, int y, int w, int h) {
         List<FormattedCharSequence> wrapped = new ArrayList<>();
         for (Entry e : history) {
             String color = e.isNpc ? "§e" : "§b";
             String prefix = e.isNpc ? "" : "§7Vous: §r";
-            var lines = this.font.split(Component.literal(color + prefix + e.text), textW);
+            var lines = this.font.split(Component.literal(color + prefix + e.text), w);
             wrapped.addAll(lines);
-            wrapped.add(FormattedCharSequence.EMPTY); // Ligne vide entre messages
+            wrapped.add(FormattedCharSequence.EMPTY);
         }
-        
         int lineH = 10;
-        int maxLines = Math.max(1, historyH / lineH);
+        int maxLines = Math.max(1, h / lineH);
         int start = Math.max(0, wrapped.size() - maxLines);
-        
-        int y = historyY;
-        for (int i = start; i < wrapped.size() && y < historyY + historyH; i++) {
-            g.drawString(this.font, wrapped.get(i), textX, y, 0xFFFFFF);
-            y += lineH;
+        int yy = y;
+        for (int i = start; i < wrapped.size() && yy < y + h; i++) {
+            g.drawString(this.font, wrapped.get(i), x, yy, 0xFFFFFF);
+            yy += lineH;
         }
-        
-        super.render(g, mouseX, mouseY, partialTick);
+    }
+
+    private void renderHistory(GuiGraphics g, int x, int y, int w, int h) {
+        var story = net.frealac.iamod.client.story.ClientStoryCache.get(villagerId);
+        List<Component> lines = new ArrayList<>();
+        lines.add(Component.literal("§6Histoire de vie"));
+        if (story == null || story.lifeTimeline == null || story.lifeTimeline.isEmpty()) {
+            lines.add(Component.literal("Aucune entrée."));
+        } else {
+            story.lifeTimeline.stream()
+                    .sorted((a,b) -> Integer.compare(a.age, b.age))
+                    .forEach(ev -> lines.add(Component.literal("§7" + ev.age + " ans§r – " + ev.type + (ev.place!=null?" @"+ev.place:"") + (ev.details!=null?": "+ev.details:""))));
+        }
+        drawWrapped(g, lines, x, y, w, h);
+    }
+
+    private void renderHealth(GuiGraphics g, int x, int y, int w, int h) {
+        var story = net.frealac.iamod.client.story.ClientStoryCache.get(villagerId);
+        List<Component> lines = new ArrayList<>();
+        lines.add(Component.literal("§6Santé & Psychologie"));
+        if (story == null) { lines.add(Component.literal("Aucune donnée.")); drawWrapped(g, lines, x, y, w, h); return; }
+        if (story.health != null) {
+            lines.add(Component.literal("§eSanté:"));
+            if (!story.health.allergies.isEmpty()) lines.add(Component.literal("Allergies: " + String.join(", ", story.health.allergies)));
+            if (!story.health.wounds.isEmpty()) lines.add(Component.literal("Blessures: " + story.health.wounds.size()));
+            lines.add(Component.literal(String.format("Endurance: %.2f Sommeil: %.2f", story.health.stamina, story.health.sleepQuality)));
+        }
+        if (story.psychology != null) {
+            lines.add(Component.literal("§ePsychologie:"));
+            lines.add(Component.literal(String.format("Humeur: %.2f Stress: %.2f Résilience: %.2f", story.psychology.moodBaseline, story.psychology.stress, story.psychology.resilience)));
+            if (story.psychology.trauma != null && story.psychology.trauma.events != null && !story.psychology.trauma.events.isEmpty()) {
+                lines.add(Component.literal("Traumas:"));
+                for (var t : story.psychology.trauma.events) {
+                    lines.add(Component.literal("- " + t.type + " (" + t.severity + ") @" + t.ageAt));
+                }
+            }
+        }
+        drawWrapped(g, lines, x, y, w, h);
+    }
+
+    private void renderDebugOverlay(GuiGraphics g, int x, int y, int w, int h) {
+        g.fill(x, y, x + w, y + h, 0xC0000000);
+        var story = net.frealac.iamod.client.story.ClientStoryCache.get(villagerId);
+        if (story == null) {
+            g.drawString(this.font, Component.literal("(debug) story indisponible"), x + 6, y + 6, 0xFFFFFF);
+            return;
+        }
+        List<Component> lines = new ArrayList<>();
+        lines.add(Component.literal("§6DEBUG: PNJ Story complète"));
+        lines.add(Component.literal("UUID: " + story.uuid));
+        lines.add(Component.literal("Nom: " + story.nameGiven + " " + story.nameFamily));
+        lines.add(Component.literal("Sexe: " + story.sex + " Âge: " + story.ageYears));
+        lines.add(Component.literal("Culture: " + story.cultureId + " Profession: " + story.profession));
+        lines.add(Component.literal("Traits: " + String.join(", ", story.traits)));
+        if (!story.parents.isEmpty()) lines.add(Component.literal("Parents: " + String.join(", ", story.parents)));
+        if (!story.children.isEmpty()) lines.add(Component.literal("Enfants: " + String.join(", ", story.children)));
+        if (!story.siblings.isEmpty()) lines.add(Component.literal("Fratrie: " + String.join(", ", story.siblings)));
+        if (!story.memories.isEmpty()) lines.add(Component.literal("Souvenirs simples: " + String.join(" | ", story.memories)));
+        if (story.health != null) lines.add(Component.literal("Health: wounds=" + (story.health.wounds!=null?story.health.wounds.size():0) + ", allergies=" + (story.health.allergies!=null?story.health.allergies.size():0)));
+        if (story.psychology != null && story.psychology.trauma != null) lines.add(Component.literal("Trauma events=" + (story.psychology.trauma.events!=null?story.psychology.trauma.events.size():0)));
+        lines.add(Component.literal("bioBrief: " + story.bioBrief));
+        drawWrapped(g, lines, x + 6, y + 6 + 12, w - 12, h - 18);
+    }
+
+    private void drawWrapped(GuiGraphics g, List<Component> lines, int x, int y, int w, int h) {
+        List<FormattedCharSequence> wrapped = new ArrayList<>();
+        for (Component c : lines) {
+            wrapped.addAll(this.font.split(c, w));
+        }
+        int lineH = 10;
+        int maxLines = Math.max(1, h / lineH);
+        int start = 0;
+        int yy = y;
+        for (int i = start; i < wrapped.size() && yy < y + h; i++) {
+            g.drawString(this.font, wrapped.get(i), x, yy, 0xFFFFFF);
+            yy += lineH;
+        }
     }
 
     private void send() {

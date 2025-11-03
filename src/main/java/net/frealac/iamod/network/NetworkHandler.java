@@ -3,11 +3,14 @@ package net.frealac.iamod.network;
 import net.frealac.iamod.IAMOD;
 import net.frealac.iamod.ai.OpenAiService;
 import net.frealac.iamod.client.screen.VillagerDialogScreen;
+import net.frealac.iamod.client.story.ClientStoryCache;
+import net.frealac.iamod.common.story.VillagerStory;
 import net.frealac.iamod.event.VillagerInteractHandler;
 import net.frealac.iamod.network.packet.AiReplyS2CPacket;
 import net.frealac.iamod.network.packet.CloseDialogC2SPacket;
 import net.frealac.iamod.network.packet.OpenDialogS2CPacket;
 import net.frealac.iamod.network.packet.PlayerMessageC2SPacket;
+import net.frealac.iamod.network.packet.SyncVillagerStoryS2CPacket;
 import net.frealac.iamod.server.ConversationManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
@@ -35,6 +38,22 @@ public class NetworkHandler {
                 .consumerMainThread((msg, ctx) -> {
                     Minecraft mc = Minecraft.getInstance();
                     mc.setScreen(new VillagerDialogScreen(msg.getVillagerId(), msg.getGreeting()));
+                })
+                .add();
+
+        CHANNEL.messageBuilder(SyncVillagerStoryS2CPacket.class, id++, NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(SyncVillagerStoryS2CPacket::encode)
+                .decoder(SyncVillagerStoryS2CPacket::decode)
+                .consumerMainThread((msg, ctx) -> {
+                    var story = msg.getStory();
+                    ClientStoryCache.put(msg.getVillagerId(), story);
+                    // If dialog open, append the bioBrief line for quick visibility (Phase 1 UX)
+                    var mc = Minecraft.getInstance();
+                    if (mc.screen instanceof VillagerDialogScreen s && s.getVillagerId() == msg.getVillagerId()) {
+                        if (story != null && story.bioBrief != null && !story.bioBrief.isEmpty()) {
+                            s.appendNpc(story.bioBrief);
+                        }
+                    }
                 })
                 .add();
 

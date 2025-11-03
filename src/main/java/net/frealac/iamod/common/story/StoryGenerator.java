@@ -1,0 +1,150 @@
+package net.frealac.iamod.common.story;
+
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.npc.Villager;
+
+import java.util.List;
+import java.util.Locale;
+import java.util.Random;
+
+/**
+ * Phase 1 deterministic generator seeded by worldSeed ^ villagerUUID bits ^ coarse position bucket.
+ */
+public class StoryGenerator {
+    private static final List<String> CULTURES = List.of("plaine_nord", "colline_est", "marais_ouest", "montagne_sud");
+    private static final List<String> PROFESSIONS = List.of(
+            "farmer", "fisherman", "shepherd", "fletcher", "librarian", "cartographer",
+            "cleric", "armorer", "weaponsmith", "toolsmith", "mason", "leatherworker", "butcher");
+    private static final List<String> TRAITS = List.of(
+            "généreux", "prudent", "rancunier", "loyal", "superstitieux", "méticuleux", "bavard", "timide",
+            "courageux", "mélancolique", "ambitieux", "farceur", "patient", "curieux");
+    private static final List<String> GIVEN_NAMES = List.of(
+            "Maelle", "Éloi", "Bastien", "Agnès", "Lina", "Théo", "Luc", "Esther", "Jules", "Noé", "Clara", "Sacha");
+    private static final List<String> FAMILY_NAMES = List.of(
+            "Durand", "Dubreuil", "Martin", "Petit", "Bernard", "Robert", "Richard", "Moreau", "Simon", "Laurent");
+
+    public static VillagerStory generate(ServerLevel level, Villager villager) {
+        long worldSeed = level.getSeed();
+        long uuidBits = villager.getUUID().getLeastSignificantBits() ^ villager.getUUID().getMostSignificantBits();
+        BlockPos pos = villager.blockPosition();
+        long bucket = ((long) (pos.getX() >> 4) << 32) ^ (pos.getZ() >> 4);
+        long seed = worldSeed ^ uuidBits ^ bucket;
+        Random r = new Random(seed);
+
+        VillagerStory s = new VillagerStory();
+        s.worldSeed = worldSeed;
+        s.uuid = villager.getUUID();
+        s.villageId = String.format(Locale.ROOT, "C%dxC%d", (pos.getX() >> 4), (pos.getZ() >> 4));
+
+        s.cultureId = pick(CULTURES, r);
+        s.nameGiven = pick(GIVEN_NAMES, r);
+        s.nameFamily = pick(FAMILY_NAMES, r);
+        s.sex = r.nextBoolean() ? "male" : "female";
+        s.ageYears = 16 + r.nextInt(60); // 16..75
+
+        s.profession = pick(PROFESSIONS, r);
+        s.traits.add(pick(TRAITS, r));
+        maybeAddDistinct(s.traits, TRAITS, r);
+
+        // Logical family names only (Phase 1); no world entity bindings yet
+        if (r.nextDouble() < 0.85) s.parents.add(pick(GIVEN_NAMES, r) + " " + s.nameFamily);
+        if (r.nextDouble() < 0.85) s.parents.add(pick(GIVEN_NAMES, r) + " " + s.nameFamily);
+        int childCount = r.nextInt(3); // 0..2 children
+        for (int i = 0; i < childCount; i++) {
+            s.children.add(pick(GIVEN_NAMES, r) + " " + s.nameFamily);
+        }
+        if (r.nextDouble() < 0.4) s.siblings.add(pick(GIVEN_NAMES, r) + " " + s.nameFamily);
+
+        // Memories (short)
+        s.memories.add("a aidé au marché du village");
+        if (r.nextBoolean()) s.memories.add("a réparé le puits avec les voisins");
+        if (r.nextDouble() < 0.3) s.memories.add("a survécu à une mauvaise saison");
+
+        // Phase 2: health & psychology basic generation
+        VillagerStory.Health h = new VillagerStory.Health();
+        if (r.nextDouble() < 0.2) h.allergies.add("pollen");
+        if (r.nextDouble() < 0.15) { VillagerStory.ScaleItem ph = new VillagerStory.ScaleItem(); ph.type = "orage"; ph.severity = 0.4 + r.nextDouble() * 0.4; h.phobias.add(ph); }
+        if (r.nextDouble() < 0.25) { VillagerStory.Wound w = new VillagerStory.Wound(); w.type = "coupure"; w.date = (200 + r.nextInt(60)) + "-" + (1 + r.nextInt(12)); w.severity = r.nextDouble(); w.permanent = r.nextBoolean(); h.wounds.add(w); }
+        h.stamina = 0.4 + r.nextDouble() * 0.5;
+        h.painTolerance = 0.3 + r.nextDouble() * 0.6;
+        h.sleepQuality = 0.3 + r.nextDouble() * 0.6;
+        s.health = h;
+
+        VillagerStory.Psychology psy = new VillagerStory.Psychology();
+        if (r.nextDouble() < 0.25) {
+            VillagerStory.TraumaEvent te = new VillagerStory.TraumaEvent();
+            te.id = "t1";
+            te.type = r.nextBoolean()?"incendie":"accident_travail";
+            te.ageAt = 10 + r.nextInt(Math.max(1, s.ageYears - 10));
+            te.description = te.type.equals("incendie")?"a perdu des biens" : "blessure au chantier";
+            te.severity = 0.4 + r.nextDouble() * 0.5;
+            te.tags.add(te.type);
+            psy.trauma.events.add(te);
+            psy.trauma.coping.add(r.nextBoolean()?"travail":"isolement");
+        }
+        psy.moodBaseline = -0.2 + r.nextDouble()*0.4; // around neutral
+        psy.stress = r.nextDouble()*0.5;
+        psy.resilience = 0.4 + r.nextDouble()*0.5;
+        if (r.nextDouble() < 0.3) psy.fears.add("orage");
+        if (r.nextDouble() < 0.4) psy.hopes.add("meilleure récolte");
+        s.psychology = psy;
+
+        // Phase 2: timeline & memoriesDetailed
+        int startAge = Math.max(6, s.ageYears - 25);
+        int events = 2 + r.nextInt(3);
+        for (int i = 0; i < events; i++) {
+            VillagerStory.LifeEvent le = new VillagerStory.LifeEvent();
+            le.age = startAge + r.nextInt(Math.max(1, s.ageYears - startAge));
+            le.type = switch (r.nextInt(5)) {
+                case 0 -> "apprentissage";
+                case 1 -> "migration";
+                case 2 -> "promotion";
+                case 3 -> "accident";
+                default -> "incident_village";
+            };
+            le.place = s.villageId;
+            le.details = "événement: " + le.type;
+            s.lifeTimeline.add(le);
+        }
+        int mcount = 1 + r.nextInt(3);
+        for (int i = 0; i < mcount; i++) {
+            VillagerStory.MemoryEntry me = new VillagerStory.MemoryEntry();
+            me.id = "m" + (i+1);
+            me.date = (210 + r.nextInt(50)) + "-" + (1 + r.nextInt(12));
+            me.topic = r.nextBoolean()?"marché":"chantier";
+            me.moodDelta = -0.3 + r.nextDouble()*0.6;
+            me.importance = 0.2 + r.nextDouble()*0.6;
+            me.tags.add(me.topic);
+            s.memoriesDetailed.add(me);
+        }
+
+        s.routines = new VillagerStory.Routines();
+        s.routines.daily.add("travail");
+        s.routines.daily.add("repos");
+        if (r.nextDouble() < 0.5) s.routines.daily.add("commérage");
+
+        s.preferences = new VillagerStory.Preferences();
+        s.preferences.likes.add("pain");
+        if (r.nextDouble() < 0.4) s.preferences.dislikes.add("boue");
+        s.preferences.foods.favorite.add("ragoût");
+
+        // Bio brief (one-liner)
+        String t1 = s.traits.isEmpty() ? "travailleur" : s.traits.get(0);
+        s.bioBrief = s.nameGiven + " " + s.nameFamily + ", " + t1 + "·e, " + s.profession + ", culture " + s.cultureId + ".";
+        return s;
+    }
+
+    private static <T> T pick(List<T> list, Random r) {
+        return list.get(r.nextInt(list.size()));
+    }
+
+    private static void maybeAddDistinct(List<String> out, List<String> pool, Random r) {
+        if (r.nextDouble() < 0.6) {
+            String c;
+            int guard = 0;
+            do { c = pick(pool, r); guard++; } while (out.contains(c) && guard < 6);
+            if (!out.contains(c)) out.add(c);
+        }
+    }
+}
