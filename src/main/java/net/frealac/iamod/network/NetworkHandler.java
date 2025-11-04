@@ -12,6 +12,8 @@ import net.frealac.iamod.network.packet.CloseDialogC2SPacket;
 import net.frealac.iamod.network.packet.OpenDialogS2CPacket;
 import net.frealac.iamod.network.packet.PlayerMessageC2SPacket;
 import net.frealac.iamod.network.packet.SyncVillagerStoryS2CPacket;
+import net.frealac.iamod.network.packet.OpenAIConfigS2CPacket;
+import net.frealac.iamod.network.packet.UpdateAIConfigC2SPacket;
 import net.frealac.iamod.server.ConversationManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
@@ -127,6 +129,19 @@ public class NetworkHandler {
                 .consumerMainThread((msg, ctx) -> {
                     VillagerInteractHandler.endConversation(msg.getVillagerId());
                 })
+                .add();
+
+        // AI Configuration packets
+        CHANNEL.messageBuilder(OpenAIConfigS2CPacket.class, id++, NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(OpenAIConfigS2CPacket::encode)
+                .decoder(OpenAIConfigS2CPacket::new)
+                .consumerMainThread(OpenAIConfigS2CPacket::handle)
+                .add();
+
+        CHANNEL.messageBuilder(UpdateAIConfigC2SPacket.class, id++, NetworkDirection.PLAY_TO_SERVER)
+                .encoder(UpdateAIConfigC2SPacket::encode)
+                .decoder(UpdateAIConfigC2SPacket::new)
+                .consumerMainThread(UpdateAIConfigC2SPacket::handle)
                 .add();
     }
 

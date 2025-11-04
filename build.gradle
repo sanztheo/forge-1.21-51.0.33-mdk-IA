@@ -115,6 +115,18 @@ repositories {
     // Put repositories for dependencies here
     // ForgeGradle automatically adds the Forge maven and Maven Central for you
 
+    // For gdx-ai (AI library with behavior trees and state machines)
+    maven { url 'https://oss.sonatype.org/content/repositories/snapshots/' }
+    maven { url 'https://oss.sonatype.org/content/repositories/releases/' }
+
+    // For GeckoLib (3D animation library - for future use in 5.4)
+    maven {
+        url 'https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/'
+        content {
+            includeGroup "software.bernie.geckolib"
+        }
+    }
+
     // If you have mod jar dependencies in ./libs, you can declare them as a repository like so.
     // See https://docs.gradle.org/current/userguide/declaring_repositories.html#sub:flat_dir_resolver
     // flatDir {
@@ -145,10 +157,22 @@ dependencies {
     // http://www.gradle.org/docs/current/userguide/artifact_dependencies_tutorial.html
     // http://www.gradle.org/docs/current/userguide/dependency_management.html
     
-    // Hack fix for now, force jopt-simple to be exactly 5.0.4 because Mojang ships that version, but some transitive dependencies request 6.0+ 
+    // Hack fix for now, force jopt-simple to be exactly 5.0.4 because Mojang ships that version, but some transitive dependencies request 6.0+
     implementation('net.sf.jopt-simple:jopt-simple:5.0.4') { version { strictly '5.0.4' } }
+
     // JSON parsing for OpenAI responses
     implementation 'com.google.code.gson:gson:2.10.1'
+
+    // ===== AI System Libraries (5.0-5.3) =====
+
+    // gdx-ai: Advanced AI with Behavior Trees, State Machines, and Pathfinding (for 5.0 & 5.1)
+    implementation 'com.badlogicgames.gdx:gdx-ai:1.8.2'
+
+    // fastutil: High-performance collections for pathfinding optimization (for 5.1)
+    implementation 'it.unimi.dsi:fastutil:8.5.12'
+
+    // GeckoLib: 3D animation library (for future 5.4, but prepared now)
+    // implementation fg.deobf('software.bernie.geckolib:geckolib-forge-1.21:5.2.1')
 }
 
 // This block of code expands all declared replace properties in the specified resource targets.
