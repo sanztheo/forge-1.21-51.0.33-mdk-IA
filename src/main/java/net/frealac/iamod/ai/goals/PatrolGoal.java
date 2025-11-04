@@ -1,5 +1,6 @@
 package net.frealac.iamod.ai.goals;
 
+import net.frealac.iamod.ai.pathfinding.PathfindingManager;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.navigation.PathNavigation;
@@ -11,6 +12,7 @@ import java.util.Random;
 
 /**
  * AI Goal that makes the entity patrol between multiple points.
+ * Enhanced with advanced pathfinding using PathfindingManager.
  */
 public class PatrolGoal extends AIGoal {
     private final List<BlockPos> patrolPoints = new ArrayList<>();
@@ -19,6 +21,9 @@ public class PatrolGoal extends AIGoal {
     private int idleTicks = 0;
     private static final int IDLE_DURATION = 100; // 5 seconds at 20 ticks/second
     private boolean isIdling = false;
+    private boolean isCalculatingPath = false;
+    private List<BlockPos> currentPath = new ArrayList<>();
+    private int currentPathStep = 0;
 
     public PatrolGoal(Mob entity, int priority) {
         super(entity, priority);
@@ -64,6 +69,11 @@ public class PatrolGoal extends AIGoal {
             return;
         }
 
+        // If calculating path, wait
+        if (isCalculatingPath) {
+            return;
+        }
+
         // Check if arrived at current point
         BlockPos currentPoint = patrolPoints.get(currentPointIndex);
         if (entity.blockPosition().distSqr(currentPoint) < 4) { // Within 2 blocks
@@ -71,11 +81,31 @@ public class PatrolGoal extends AIGoal {
             isIdling = true;
             idleTicks = 0;
             entity.getNavigation().stop();
+            currentPath.clear();
         } else {
-            // Continue navigating if path is lost
-            PathNavigation navigation = entity.getNavigation();
-            if (navigation.isDone()) {
-                navigateToCurrentPoint();
+            // Follow calculated path if available
+            if (!currentPath.isEmpty() && currentPathStep < currentPath.size()) {
+                BlockPos nextStep = currentPath.get(currentPathStep);
+
+                // Check if reached current step
+                if (entity.blockPosition().distSqr(nextStep) < 1.5) {
+                    currentPathStep++;
+                    if (currentPathStep < currentPath.size()) {
+                        BlockPos nextTarget = currentPath.get(currentPathStep);
+                        entity.getNavigation().moveTo(
+                            nextTarget.getX() + 0.5,
+                            nextTarget.getY(),
+                            nextTarget.getZ() + 0.5,
+                            1.0
+                        );
+                    }
+                }
+            } else {
+                // Recalculate path if navigation is done
+                PathNavigation navigation = entity.getNavigation();
+                if (navigation.isDone()) {
+                    navigateToCurrentPoint();
+                }
             }
         }
     }
@@ -85,6 +115,8 @@ public class PatrolGoal extends AIGoal {
         entity.getNavigation().stop();
         isIdling = false;
         idleTicks = 0;
+        currentPath.clear();
+        isCalculatingPath = false;
     }
 
     private void moveToNextPoint() {
@@ -93,14 +125,49 @@ public class PatrolGoal extends AIGoal {
     }
 
     private void navigateToCurrentPoint() {
-        if (patrolPoints.isEmpty()) return;
+        if (patrolPoints.isEmpty() || isCalculatingPath) return;
+
         BlockPos targetPos = patrolPoints.get(currentPointIndex);
-        entity.getNavigation().moveTo(targetPos.getX() + 0.5, targetPos.getY(), targetPos.getZ() + 0.5, 1.0);
+        BlockPos startPos = entity.blockPosition();
+
+        // Use advanced pathfinding asynchronously
+        isCalculatingPath = true;
+        PathfindingManager.getInstance().findPathAsync(
+            entity.level(),
+            startPos,
+            targetPos,
+            path -> {
+                isCalculatingPath = false;
+                if (!path.isEmpty()) {
+                    // Path found, use it
+                    currentPath = new ArrayList<>(path);
+                    currentPathStep = 0;
+
+                    if (!currentPath.isEmpty()) {
+                        BlockPos firstStep = currentPath.get(0);
+                        entity.getNavigation().moveTo(
+                            firstStep.getX() + 0.5,
+                            firstStep.getY(),
+                            firstStep.getZ() + 0.5,
+                            1.0
+                        );
+                    }
+                } else {
+                    // No path found, fallback to vanilla navigation
+                    entity.getNavigation().moveTo(
+                        targetPos.getX() + 0.5,
+                        targetPos.getY(),
+                        targetPos.getZ() + 0.5,
+                        1.0
+                    );
+                }
+            }
+        );
     }
 
     @Override
     public String getDescription() {
-        return "Patrol (" + patrolPoints.size() + " points)";
+        return "Patrol (" + patrolPoints.size() + " points) [Advanced Pathfinding]";
     }
 
     public List<BlockPos> getPatrolPoints() {
