@@ -1,5 +1,7 @@
 package net.frealac.iamod.ai.pathfinding;
 
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.Level;
@@ -10,6 +12,7 @@ import java.util.*;
 
 /**
  * Advanced A* pathfinding implementation for AI entities.
+ * Optimized with fastutil collections for better performance.
  * Provides better pathfinding than the default Minecraft pathfinding.
  */
 public class AdvancedPathfinder {
@@ -45,10 +48,10 @@ public class AdvancedPathfinder {
             return cachedPath;
         }
 
-        // A* algorithm
+        // A* algorithm with fastutil optimized collections
         PriorityQueue<PathNode> openSet = new PriorityQueue<>();
-        Set<BlockPos> closedSet = new HashSet<>();
-        Map<BlockPos, PathNode> allNodes = new HashMap<>();
+        Set<BlockPos> closedSet = new ObjectOpenHashSet<>();
+        Map<BlockPos, PathNode> allNodes = new Object2ObjectOpenHashMap<>();
 
         PathNode startNode = new PathNode(start);
         startNode.calculateCosts(goal, 0);
