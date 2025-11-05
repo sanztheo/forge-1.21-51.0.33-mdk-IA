@@ -373,6 +373,10 @@ public class BehaviorManager {
             distance = villager.distanceTo(player);
         }
 
+        // Get AI activity data (NEW)
+        net.frealac.iamod.server.AIActivityTracker.ActivityData activity =
+            net.frealac.iamod.server.AIActivityTracker.getActivity(villager.getId());
+
         return new net.frealac.iamod.ai.debug.VillagerDebugInfo(
             villagerName,
             currentAction,
@@ -385,7 +389,11 @@ public class BehaviorManager {
             memoryCount,
             sentiment,
             recentMemories,
-            distance
+            distance,
+            activity.isAiProcessing,
+            activity.lastAiActivity,
+            activity.conversationMessageCount,
+            activity.lastMemoryAction
         );
     }
 }

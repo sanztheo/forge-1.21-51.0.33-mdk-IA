@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "net.frealac.iamod.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "refmap": "iamod.refmap.json",
+  "client": [
+    "GuiMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

@@ -52,6 +52,12 @@ public class MemoryEventListener {
                     player.getName().getString()
             );
 
+            // Track memory write for debug HUD (NEW)
+            net.frealac.iamod.server.AIActivityTracker.recordMemoryWrite(
+                    villager.getId(),
+                    description
+            );
+
             IAMOD.LOGGER.info("Villager {} remembers being hit by {}",
                     getVillagerName(story), player.getName().getString());
 
@@ -101,6 +107,12 @@ public class MemoryEventListener {
                     player.getName().getString()
             );
 
+            // Track memory write for debug HUD (NEW)
+            net.frealac.iamod.server.AIActivityTracker.recordMemoryWrite(
+                    villager.getId(),
+                    description
+            );
+
             IAMOD.LOGGER.info("Villager {} received gift from {}",
                     getVillagerName(story), player.getName().getString());
 
@@ -144,6 +156,12 @@ public class MemoryEventListener {
                         description,
                         killer.getUUID(),
                         killer.getName().getString()
+                );
+
+                // Track memory write for debug HUD (NEW)
+                net.frealac.iamod.server.AIActivityTracker.recordMemoryWrite(
+                        witness.getId(),
+                        description
                 );
 
                 // Increase stress and fear

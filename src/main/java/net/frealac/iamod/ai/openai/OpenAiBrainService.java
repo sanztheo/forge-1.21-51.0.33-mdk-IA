@@ -3,49 +3,69 @@ package net.frealac.iamod.ai.openai;
 import com.google.gson.*;
 import net.frealac.iamod.IAMOD;
 import net.frealac.iamod.ai.brain.AIAction;
+import net.frealac.iamod.ai.brain.VillagerBrainSystem;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * AI Brain Service - Analyzes player messages and decides what actions to take.
  * Returns structured JSON with actions (enable/disable goals, speak, etc.)
+ *
+ * NEW: Uses modular brain architecture with specialized brain modules!
+ * EmotionalBrain + MemoryBrain + SocialBrain → GeneralBrain → AI Response
  */
 public class OpenAiBrainService {
 
     private final OpenAiClient client;
     private final Gson gson;
 
+    // Brain systems cache per villager
+    private final Map<Integer, VillagerBrainSystem> brainSystems;
+
     public OpenAiBrainService() {
         this.client = new OpenAiClient();
         this.gson = new GsonBuilder().create();
+        this.brainSystems = new HashMap<>();
     }
 
     /**
      * Analyze player message and decide what actions to take.
-     * Takes into account the FULL villager personality, mood, health, memories, etc.
+     * NOW USES MODULAR BRAIN SYSTEM!
      *
+     * @param villagerId Villager entity ID
      * @param playerMessage What the player said
      * @param villagerStory Complete villager story with personality, mood, health, memories
      * @param currentGoalsState Current state of goals (for context)
      * @param playerUuid Player UUID for memory tracking
      * @return List of actions to execute
      */
-    public List<AIAction> analyzeIntention(String playerMessage,
+    public List<AIAction> analyzeIntention(int villagerId,
+                                          String playerMessage,
                                           net.frealac.iamod.common.story.VillagerStory villagerStory,
                                           String currentGoalsState,
                                           java.util.UUID playerUuid)
             throws IOException, InterruptedException {
 
-        JsonObject payload = new JsonObject();
+        // Get or create brain system for this villager
+        VillagerBrainSystem brainSystem = getOrCreateBrainSystem(villagerId, villagerStory);
 
+        // Generate comprehensive context using ALL brain modules
+        String comprehensiveContext = brainSystem.processPlayerMessage(
+            playerUuid, playerMessage, villagerStory, currentGoalsState);
+
+        IAMOD.LOGGER.info("🧠 Brain System generated context for villager {}", villagerId);
+
+        JsonObject payload = new JsonObject();
         JsonArray messages = new JsonArray();
 
-        // System prompt - teaches AI how to respond with actions + FULL personality context + MEMORIES
+        // System prompt with brain-generated context
         JsonObject system = new JsonObject();
         system.addProperty("role", "system");
-        system.addProperty("content", buildBrainSystemPromptWithPersonality(villagerStory, currentGoalsState, playerUuid));
+        system.addProperty("content", buildBrainSystemPrompt(comprehensiveContext));
         messages.add(system);
 
         // User message
@@ -67,73 +87,32 @@ public class OpenAiBrainService {
     }
 
     /**
-     * Build RICH system prompt with FULL villager personality context + MEMORIES.
-     * The AI brain decides AUTONOMOUSLY how to respond based on ALL the context.
-     * NO predefined conditions - the AI is a true autonomous brain.
-     * Includes all interaction memories to create realistic, consistent behavior.
+     * Get or create a brain system for a villager.
+     * Caches brain systems to maintain state across interactions.
      */
-    private String buildBrainSystemPromptWithPersonality(
-            net.frealac.iamod.common.story.VillagerStory story,
-            String goalsState,
-            java.util.UUID playerUuid) {
+    private VillagerBrainSystem getOrCreateBrainSystem(int villagerId,
+                                                       net.frealac.iamod.common.story.VillagerStory story) {
+        return brainSystems.computeIfAbsent(villagerId,
+            id -> new VillagerBrainSystem(id, story));
+    }
 
-        // Basic identity
-        String name = (story.nameGiven != null ? story.nameGiven : "Villageois") +
-                     (story.nameFamily != null ? (" " + story.nameFamily) : "");
-        String age = story.ageYears > 0 ? (story.ageYears + " ans") : "adulte";
-        String profession = story.profession != null ? story.profession : "habitant";
+    /**
+     * Remove brain system for a villager (when villager is removed/despawns).
+     */
+    public void removeBrainSystem(int villagerId) {
+        brainSystems.remove(villagerId);
+        IAMOD.LOGGER.info("🧠 Brain system removed for villager {}", villagerId);
+    }
 
-        // Personality traits
-        String traits = story.traits != null && !story.traits.isEmpty()
-            ? String.join(", ", story.traits.subList(0, Math.min(5, story.traits.size())))
-            : "aucun trait particulier";
-
-        // Psychology state - RAW DATA for AI to interpret
-        String psychState = "";
-        if (story.psychology != null) {
-            double mood = story.psychology.moodBaseline;
-            double stress = story.psychology.stress;
-            double resilience = story.psychology.resilience;
-
-            psychState = String.format(
-                "Psychologie: humeur=%.2f (-1=déprimé, 0=neutre, +1=joyeux), stress=%.2f (0=calme, 1=très stressé), résilience=%.2f",
-                mood, stress, resilience
-            );
-        }
-
-        // Health state - RAW DATA
-        String healthState = "";
-        if (story.health != null) {
-            int wounds = story.health.wounds != null ? story.health.wounds.size() : 0;
-            healthState = String.format("Santé: %d blessures, qualité sommeil=%.2f (0=épuisé, 1=reposé)",
-                wounds, story.health.sleepQuality);
-        }
-
-        // Build the RICH system prompt - LET THE AI DECIDE NATURALLY
+    /**
+     * Build system prompt with brain-generated comprehensive context.
+     * The brain system already provides ALL context from all brain modules.
+     */
+    private String buildBrainSystemPrompt(String comprehensiveContext) {
         StringBuilder prompt = new StringBuilder();
 
-        prompt.append("TU ES ").append(name).append(", ").append(age).append(", ")
-              .append(profession).append(".\n\n");
-
-        prompt.append("=== QUI TU ES ===\n");
-        prompt.append("Traits de personnalité: ").append(traits).append("\n");
-        if (!psychState.isEmpty()) prompt.append(psychState).append("\n");
-        if (!healthState.isEmpty()) prompt.append(healthState).append("\n");
-        if (story.bioBrief != null && !story.bioBrief.isEmpty()) {
-            prompt.append("Histoire: ").append(story.bioBrief.substring(0, Math.min(200, story.bioBrief.length()))).append("\n");
-        }
-
-        // Memories - CRITICAL for realistic interactions
-        prompt.append("\n=== TES SOUVENIRS ===\n");
-        if (story.interactionMemory != null) {
-            String memoriesText = story.interactionMemory.formatMemoriesForPrompt(playerUuid);
-            prompt.append(memoriesText).append("\n");
-        } else {
-            prompt.append("Aucun souvenir particulier.\n");
-        }
-
-        prompt.append("\n=== TA SITUATION ACTUELLE ===\n");
-        prompt.append(goalsState).append("\n");
+        // The comprehensive context already contains everything from all brain modules
+        prompt.append(comprehensiveContext);
 
         prompt.append("\n=== COMMENT TU FONCTIONNES ===\n");
         prompt.append("Tu es un ÊTRE VIVANT. Tu as des émotions, de la fatigue, du stress.\n");

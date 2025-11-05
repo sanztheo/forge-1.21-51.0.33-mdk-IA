@@ -55,6 +55,9 @@ public class ChatHandler {
      * Each villager responds based on their UNIQUE personality, mood, health, etc.
      */
     private static void processVillagerResponse(Villager villager, ServerPlayer player, String message) {
+        // Track AI activity START
+        net.frealac.iamod.server.AIActivityTracker.startAiProcessing(villager.getId());
+
         try {
             // Get villager's behavior manager
             BehaviorManager behaviorManager = BehaviorManager.getOrCreate(villager);
@@ -67,7 +70,8 @@ public class ChatHandler {
 
             // Ask the AI brain to analyze the message with FULL personality context + MEMORIES
             // The brain will decide actions based on this villager's unique state and past interactions
-            List<AIAction> actions = brainService.analyzeIntention(message, story, goalsState, player.getUUID());
+            List<AIAction> actions = brainService.analyzeIntention(
+                villager.getId(), message, story, goalsState, player.getUUID());
 
             IAMOD.LOGGER.info("Villager {} received message from {}: '{}', brain decided {} actions",
                     getVillagerName(story), player.getName().getString(), message, actions.size());
@@ -97,8 +101,13 @@ public class ChatHandler {
             // Add interaction memory
             addInteractionMemory(story, player, message, villagerResponse, hadPositiveInteraction, hadNegativeInteraction);
 
+            // Track AI activity SUCCESS
+            net.frealac.iamod.server.AIActivityTracker.finishAiProcessing(villager.getId(), true);
+
         } catch (Exception e) {
             IAMOD.LOGGER.error("Failed to process villager AI response", e);
+            // Track AI activity FAILURE
+            net.frealac.iamod.server.AIActivityTracker.finishAiProcessing(villager.getId(), false);
         }
     }
 
@@ -237,25 +246,42 @@ public class ChatHandler {
     /**
      * Get the villager's unique story (personality, psychology, health).
      * Each villager has their own story that makes them a unique person.
+     * FIXED: Now reads the REAL story with REAL memories!
      */
     private static VillagerStory getVillagerStory(Villager villager) {
-        // TODO: Retrieve actual VillagerStory from entity capability or data attachment
-        // For now, return a basic story
+        try {
+            // Get the REAL story from capability
+            var cap = villager.getCapability(net.frealac.iamod.common.story.VillagerStoryProvider.CAPABILITY);
+            VillagerStory story = cap.map(net.frealac.iamod.common.story.IVillagerStory::getStory).orElse(null);
+
+            if (story != null) {
+                IAMOD.LOGGER.info("✓ Loaded REAL story with {} memories",
+                    story.interactionMemory != null ? story.interactionMemory.getMemoryCount() : 0);
+                return story;
+            }
+
+            IAMOD.LOGGER.warn("Story capability is null, creating default story");
+
+        } catch (Exception e) {
+            IAMOD.LOGGER.error("Failed to get VillagerStory from capability", e);
+        }
+
+        // Fallback: create default story
         VillagerStory story = new VillagerStory();
         story.nameGiven = "Villageois";
         story.ageYears = 25;
         story.profession = "habitant";
 
-        // Default psychology (will be replaced by actual data)
         story.psychology = new VillagerStory.Psychology();
-        story.psychology.moodBaseline = 0.1; // Neutral mood
-        story.psychology.stress = 0.3; // Low stress
-        story.psychology.resilience = 0.7; // Good resilience
+        story.psychology.moodBaseline = 0.1;
+        story.psychology.stress = 0.3;
+        story.psychology.resilience = 0.7;
 
-        // Default health (will be replaced by actual data)
         story.health = new VillagerStory.Health();
-        story.health.sleepQuality = 0.8; // Well rested
+        story.health.sleepQuality = 0.8;
         story.health.wounds = new java.util.ArrayList<>();
+
+        story.interactionMemory = new net.frealac.iamod.ai.memory.VillagerMemory();
 
         return story;
     }

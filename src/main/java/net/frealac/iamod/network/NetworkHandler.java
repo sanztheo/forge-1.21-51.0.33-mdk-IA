@@ -84,6 +84,10 @@ public class NetworkHandler {
                     ConversationManager.ensureSystem(key, systemPromptFinal);
                     var history = ConversationManager.appendUserAndGetHistory(key, msg.getMessage());
                     final int idVillager = msg.getVillagerId();
+
+                    // Track AI activity start (NEW)
+                    net.frealac.iamod.server.AIActivityTracker.startAiProcessing(idVillager);
+
                     OpenAiService service = new OpenAiService();
                     service.chatStreamSSE(
                             history,
@@ -94,6 +98,9 @@ public class NetworkHandler {
                         sender.getServer().execute(() -> {
                             String reply = (ex == null) ? full : ("Erreur IA: " + ex.getMessage());
                             ConversationManager.appendAssistant(key, reply);
+
+                            // Track AI activity finish (NEW)
+                            net.frealac.iamod.server.AIActivityTracker.finishAiProcessing(idVillager, ex == null);
                         });
                         return null;
                     });
