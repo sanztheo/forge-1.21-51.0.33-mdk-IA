@@ -88,6 +88,75 @@ public class NetworkHandler {
                     // Track AI activity start (NEW)
                     net.frealac.iamod.server.AIActivityTracker.startAiProcessing(idVillager);
 
+                    // PROCESS MESSAGE THROUGH BRAIN MODULES (sentiment analysis + brain signals)
+                    if (ent instanceof net.minecraft.world.entity.npc.Villager villager) {
+                        try {
+                            // Get villager's unique story (personality, psychology, health)
+                            var cap = villager.getCapability(net.frealac.iamod.common.story.VillagerStoryProvider.CAPABILITY).orElse(null);
+                            if (cap != null) {
+                                var story = cap.getStory();
+
+                                // 1. ANALYZE MESSAGE with AI (sentiment, emotions, impact)
+                                net.frealac.iamod.ai.brain.MessageAnalyzer.MessageImpact impact =
+                                    net.frealac.iamod.ai.brain.MessageAnalyzer.analyzeMessage(msg.getMessage());
+
+                                net.frealac.iamod.IAMOD.LOGGER.info("💬 GUI Message impact: sentiment={} ({})",
+                                    impact.overallSentiment, impact.getDescription());
+
+                                // 2. Get brain system for this villager
+                                net.frealac.iamod.ai.openai.OpenAiBrainService brainService = new net.frealac.iamod.ai.openai.OpenAiBrainService();
+                                net.frealac.iamod.ai.brain.VillagerBrainSystem brainSystem =
+                                    brainService.getBrainSystem(idVillager);
+
+                                // 3. SEND SIGNALS to brain modules based on message impact
+                                if (brainSystem != null) {
+                                    net.frealac.iamod.ai.brain.MessageAnalyzer.sendBrainSignals(
+                                        impact, brainSystem, sender.getUUID());
+                                }
+
+                                // 4. Add interaction memory based on MESSAGE IMPACT
+                                if (story.interactionMemory == null) {
+                                    story.interactionMemory = new net.frealac.iamod.ai.memory.VillagerMemory();
+                                }
+
+                                // Create memory based on sentiment
+                                net.frealac.iamod.ai.memory.MemoryType memoryType;
+                                String description;
+                                double emotionalImpact;
+
+                                if (impact.affectionImpact > 0.3 || impact.positiveImpact > 0.3) {
+                                    memoryType = net.frealac.iamod.ai.memory.MemoryType.PLEASANT_CONVERSATION;
+                                    description = String.format("M'a dit via GUI: '%s' - C'était agréable",
+                                        msg.getMessage().substring(0, Math.min(50, msg.getMessage().length())));
+                                    emotionalImpact = Math.max(impact.positiveImpact, impact.affectionImpact);
+                                    net.frealac.iamod.IAMOD.LOGGER.info("💚 Creating POSITIVE GUI memory (impact={})", emotionalImpact);
+                                } else if (impact.aggressionImpact > 0.3 || impact.negativeImpact > 0.3) {
+                                    memoryType = net.frealac.iamod.ai.memory.MemoryType.WAS_INSULTED;
+                                    description = String.format("M'a dit via GUI: '%s' - C'était désagréable",
+                                        msg.getMessage().substring(0, Math.min(50, msg.getMessage().length())));
+                                    emotionalImpact = -Math.max(impact.negativeImpact, impact.aggressionImpact);
+                                    net.frealac.iamod.IAMOD.LOGGER.info("💔 Creating NEGATIVE GUI memory (impact={})", emotionalImpact);
+                                } else {
+                                    memoryType = net.frealac.iamod.ai.memory.MemoryType.GENERAL_INTERACTION;
+                                    description = String.format("A dit via GUI: '%s'",
+                                        msg.getMessage().substring(0, Math.min(50, msg.getMessage().length())));
+                                    emotionalImpact = impact.overallSentiment * 0.5;
+                                    net.frealac.iamod.IAMOD.LOGGER.info("💬 Creating NEUTRAL GUI memory (impact={})", emotionalImpact);
+                                }
+
+                                // Create memory with AI-analyzed emotional impact
+                                net.frealac.iamod.ai.memory.Memory memory = new net.frealac.iamod.ai.memory.Memory(
+                                    memoryType, description, sender.getUUID(), sender.getName().getString());
+                                memory.setEmotionalImpact(emotionalImpact);
+                                story.interactionMemory.addMemory(memory);
+
+                                net.frealac.iamod.IAMOD.LOGGER.info("✓ GUI Memory created, brain modules updated");
+                            }
+                        } catch (Exception e) {
+                            net.frealac.iamod.IAMOD.LOGGER.error("Failed to process GUI message through brain modules", e);
+                        }
+                    }
+
                     OpenAiService service = new OpenAiService();
                     service.chatStreamSSE(
                             history,
