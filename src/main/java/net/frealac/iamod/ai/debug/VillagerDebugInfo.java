@@ -24,6 +24,12 @@ public class VillagerDebugInfo {
     private List<String> recentMemories; // Last 5 memories
     private double distanceToPlayer;
 
+    // AI Activity tracking (NEW)
+    private boolean isAiProcessing; // Is AI currently generating a response?
+    private String lastAiActivity; // Last AI activity timestamp
+    private int conversationMessageCount; // Number of messages in conversation
+    private String lastMemoryAction; // Last memory write action
+
     public VillagerDebugInfo() {
         this.villagerName = "Villageois";
         this.currentAction = "Inactif";
@@ -37,12 +43,18 @@ public class VillagerDebugInfo {
         this.sentiment = 0.0;
         this.recentMemories = new ArrayList<>();
         this.distanceToPlayer = 0.0;
+        this.isAiProcessing = false;
+        this.lastAiActivity = "Jamais";
+        this.conversationMessageCount = 0;
+        this.lastMemoryAction = "Aucune";
     }
 
     public VillagerDebugInfo(String villagerName, String currentAction, String currentGoal,
                             String targetPlayer, double mood, double stress, double resilience,
                             double sleepQuality, int memoryCount, double sentiment,
-                            List<String> recentMemories, double distance) {
+                            List<String> recentMemories, double distance,
+                            boolean isAiProcessing, String lastAiActivity, int conversationMessageCount,
+                            String lastMemoryAction) {
         this.villagerName = villagerName;
         this.currentAction = currentAction;
         this.currentGoal = currentGoal;
@@ -55,6 +67,10 @@ public class VillagerDebugInfo {
         this.sentiment = sentiment;
         this.recentMemories = recentMemories != null ? recentMemories : new ArrayList<>();
         this.distanceToPlayer = distance;
+        this.isAiProcessing = isAiProcessing;
+        this.lastAiActivity = lastAiActivity;
+        this.conversationMessageCount = conversationMessageCount;
+        this.lastMemoryAction = lastMemoryAction;
     }
 
     // Serialization for network packet
@@ -77,6 +93,12 @@ public class VillagerDebugInfo {
         }
 
         buf.writeDouble(distanceToPlayer);
+
+        // Write AI activity tracking (NEW)
+        buf.writeBoolean(isAiProcessing);
+        buf.writeUtf(lastAiActivity);
+        buf.writeInt(conversationMessageCount);
+        buf.writeUtf(lastMemoryAction);
     }
 
     public static VillagerDebugInfo read(FriendlyByteBuf buf) {
@@ -100,9 +122,17 @@ public class VillagerDebugInfo {
 
         double distance = buf.readDouble();
 
+        // Read AI activity tracking (NEW)
+        boolean isAiProcessing = buf.readBoolean();
+        String lastAiActivity = buf.readUtf();
+        int conversationMessageCount = buf.readInt();
+        String lastMemoryAction = buf.readUtf();
+
         return new VillagerDebugInfo(villagerName, currentAction, currentGoal,
                                     targetPlayer, mood, stress, resilience, sleepQuality,
-                                    memoryCount, sentiment, memories, distance);
+                                    memoryCount, sentiment, memories, distance,
+                                    isAiProcessing, lastAiActivity, conversationMessageCount,
+                                    lastMemoryAction);
     }
 
     // Getters
@@ -118,6 +148,10 @@ public class VillagerDebugInfo {
     public double getSentiment() { return sentiment; }
     public List<String> getRecentMemories() { return recentMemories; }
     public double getDistanceToPlayer() { return distanceToPlayer; }
+    public boolean isAiProcessing() { return isAiProcessing; }
+    public String getLastAiActivity() { return lastAiActivity; }
+    public int getConversationMessageCount() { return conversationMessageCount; }
+    public String getLastMemoryAction() { return lastMemoryAction; }
 
     // Setters
     public void setVillagerName(String name) { this.villagerName = name; }
@@ -157,6 +191,17 @@ public class VillagerDebugInfo {
         lines.add("§6--- RELATION AVEC TOI ---");
         lines.add(String.format("§fSentiment: %s%.2f %s", getSentimentColor(), sentiment, getSentimentLabel()));
         lines.add("§fMémoires total: §e" + memoryCount);
+
+        // AI ACTIVITY SECTION (NEW)
+        lines.add("§6--- ACTIVITÉ IA ---");
+        if (isAiProcessing) {
+            lines.add("§aIA: §e⚡ EN TRAIN DE RÉPONDRE...");
+        } else {
+            lines.add("§7IA: Inactive");
+        }
+        lines.add("§fDernière activité: §e" + lastAiActivity);
+        lines.add("§fMessages conversation: §e" + conversationMessageCount);
+        lines.add("§fDernière mémoire: §e" + lastMemoryAction);
 
         if (!recentMemories.isEmpty()) {
             lines.add("§6--- SOUVENIRS RÉCENTS ---");

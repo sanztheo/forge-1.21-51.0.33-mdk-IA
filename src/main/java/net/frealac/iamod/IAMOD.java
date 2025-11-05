@@ -66,7 +66,7 @@ public class IAMOD
         @SubscribeEvent
         public static void onClientSetup(FMLClientSetupEvent event)
         {
-
+            // VillagerDebugOverlay registers itself automatically via @Mod.EventBusSubscriber
         }
     }
 }

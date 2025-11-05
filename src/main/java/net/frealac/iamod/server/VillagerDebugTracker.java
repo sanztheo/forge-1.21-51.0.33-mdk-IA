@@ -73,11 +73,22 @@ public class VillagerDebugTracker {
 
         // Get villager's story capability
         VillagerStory story = nearestVillager.getCapability(VillagerStoryProvider.CAPABILITY)
+            .resolve()
             .map(cap -> cap.getStory())
             .orElse(null);
 
         // Get behavior manager and create debug info
         BehaviorManager behaviorManager = BehaviorManager.getOrCreate(nearestVillager);
+
+        // Safety check - if story is null, send empty packet
+        if (story == null) {
+            NetworkHandler.CHANNEL.send(
+                new SyncVillagerDebugS2CPacket(false),
+                PacketDistributor.PLAYER.with(player)
+            );
+            return;
+        }
+
         VillagerDebugInfo debugInfo = behaviorManager.createDebugInfo(story, player);
 
         // Send debug info to client

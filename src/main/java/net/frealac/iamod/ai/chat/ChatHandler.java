@@ -55,6 +55,9 @@ public class ChatHandler {
      * Each villager responds based on their UNIQUE personality, mood, health, etc.
      */
     private static void processVillagerResponse(Villager villager, ServerPlayer player, String message) {
+        // Track AI activity START
+        net.frealac.iamod.server.AIActivityTracker.startAiProcessing(villager.getId());
+
         try {
             // Get villager's behavior manager
             BehaviorManager behaviorManager = BehaviorManager.getOrCreate(villager);
@@ -65,16 +68,32 @@ public class ChatHandler {
             // Get current goals state for context
             String goalsState = behaviorManager.getCurrentGoalsState();
 
-            // Ask the AI brain to analyze the message with FULL personality context + MEMORIES
+            // 1. ANALYZE MESSAGE with AI (sentiment, emotions, impact)
+            net.frealac.iamod.ai.brain.MessageAnalyzer.MessageImpact impact =
+                net.frealac.iamod.ai.brain.MessageAnalyzer.analyzeMessage(message);
+
+            IAMOD.LOGGER.info("💬 Message impact: sentiment={} ({})",
+                impact.overallSentiment, impact.getDescription());
+
+            // 2. Get brain system for this villager
+            net.frealac.iamod.ai.brain.VillagerBrainSystem brainSystem =
+                brainService.getBrainSystem(villager.getId());
+
+            // 3. SEND SIGNALS to brain modules based on message impact
+            if (brainSystem != null) {
+                net.frealac.iamod.ai.brain.MessageAnalyzer.sendBrainSignals(
+                    impact, brainSystem, player.getUUID());
+            }
+
+            // 4. Ask the AI brain to analyze the message with FULL personality context + MEMORIES
             // The brain will decide actions based on this villager's unique state and past interactions
-            List<AIAction> actions = brainService.analyzeIntention(message, story, goalsState, player.getUUID());
+            List<AIAction> actions = brainService.analyzeIntention(
+                villager.getId(), message, story, goalsState, player.getUUID());
 
             IAMOD.LOGGER.info("Villager {} received message from {}: '{}', brain decided {} actions",
                     getVillagerName(story), player.getName().getString(), message, actions.size());
 
             // Execute each action decided by the brain
-            boolean hadPositiveInteraction = false;
-            boolean hadNegativeInteraction = false;
             String villagerResponse = null;
 
             for (AIAction action : actions) {
@@ -84,21 +103,18 @@ public class ChatHandler {
                 if (action.actionType == AIAction.ActionType.SPEAK && action.message != null) {
                     villagerResponse = action.message;
                 }
-
-                // Track interaction type
-                if (action.actionType == AIAction.ActionType.ENABLE_GOAL ||
-                    action.actionType == AIAction.ActionType.ENABLE_ALL_GOALS) {
-                    hadPositiveInteraction = true;
-                } else if (action.actionType == AIAction.ActionType.NOTHING) {
-                    hadNegativeInteraction = true;
-                }
             }
 
-            // Add interaction memory
-            addInteractionMemory(story, player, message, villagerResponse, hadPositiveInteraction, hadNegativeInteraction);
+            // Add interaction memory based on MESSAGE IMPACT (not villager actions)
+            addInteractionMemory(story, player, message, villagerResponse, impact);
+
+            // Track AI activity SUCCESS
+            net.frealac.iamod.server.AIActivityTracker.finishAiProcessing(villager.getId(), true);
 
         } catch (Exception e) {
             IAMOD.LOGGER.error("Failed to process villager AI response", e);
+            // Track AI activity FAILURE
+            net.frealac.iamod.server.AIActivityTracker.finishAiProcessing(villager.getId(), false);
         }
     }
 
@@ -237,35 +253,53 @@ public class ChatHandler {
     /**
      * Get the villager's unique story (personality, psychology, health).
      * Each villager has their own story that makes them a unique person.
+     * FIXED: Now reads the REAL story with REAL memories!
      */
     private static VillagerStory getVillagerStory(Villager villager) {
-        // TODO: Retrieve actual VillagerStory from entity capability or data attachment
-        // For now, return a basic story
+        try {
+            // Get the REAL story from capability
+            var cap = villager.getCapability(net.frealac.iamod.common.story.VillagerStoryProvider.CAPABILITY);
+            VillagerStory story = cap.map(net.frealac.iamod.common.story.IVillagerStory::getStory).orElse(null);
+
+            if (story != null) {
+                IAMOD.LOGGER.info("✓ Loaded REAL story with {} memories",
+                    story.interactionMemory != null ? story.interactionMemory.getMemoryCount() : 0);
+                return story;
+            }
+
+            IAMOD.LOGGER.warn("Story capability is null, creating default story");
+
+        } catch (Exception e) {
+            IAMOD.LOGGER.error("Failed to get VillagerStory from capability", e);
+        }
+
+        // Fallback: create default story
         VillagerStory story = new VillagerStory();
         story.nameGiven = "Villageois";
         story.ageYears = 25;
         story.profession = "habitant";
 
-        // Default psychology (will be replaced by actual data)
         story.psychology = new VillagerStory.Psychology();
-        story.psychology.moodBaseline = 0.1; // Neutral mood
-        story.psychology.stress = 0.3; // Low stress
-        story.psychology.resilience = 0.7; // Good resilience
+        story.psychology.moodBaseline = 0.1;
+        story.psychology.stress = 0.3;
+        story.psychology.resilience = 0.7;
 
-        // Default health (will be replaced by actual data)
         story.health = new VillagerStory.Health();
-        story.health.sleepQuality = 0.8; // Well rested
+        story.health.sleepQuality = 0.8;
         story.health.wounds = new java.util.ArrayList<>();
+
+        story.interactionMemory = new net.frealac.iamod.ai.memory.VillagerMemory();
 
         return story;
     }
 
     /**
-     * Add interaction memory automatically based on chat.
+     * Add interaction memory automatically based on message impact.
+     * Uses AI-analyzed emotional impact to create appropriate memories.
      */
     private static void addInteractionMemory(VillagerStory story, ServerPlayer player,
                                             String playerMessage, String villagerResponse,
-                                            boolean positive, boolean negative) {
+                                            net.frealac.iamod.ai.brain.MessageAnalyzer.MessageImpact impact) {
         if (story.interactionMemory == null) {
             story.interactionMemory = new net.frealac.iamod.ai.memory.VillagerMemory();
         }
@@ -283,24 +317,46 @@ public class ChatHandler {
             IAMOD.LOGGER.info("Villager learned player name: {}", player.getName().getString());
         }
 
-        // Create general interaction memory
+        // Create memory based on MESSAGE IMPACT (not villager action)
         net.frealac.iamod.ai.memory.MemoryType memoryType;
         String description;
+        double emotionalImpact;
 
-        if (positive) {
+        // Determine memory type and impact based on message analysis
+        if (impact.affectionImpact > 0.3 || impact.positiveImpact > 0.3) {
+            // Positive message → pleasant memory
             memoryType = net.frealac.iamod.ai.memory.MemoryType.PLEASANT_CONVERSATION;
-            description = String.format("A dit: '%s' - J'ai accepté de l'aider", playerMessage.substring(0, Math.min(50, playerMessage.length())));
-        } else if (negative) {
-            memoryType = net.frealac.iamod.ai.memory.MemoryType.GENERAL_INTERACTION;
-            description = String.format("A dit: '%s' - Je l'ai ignoré", playerMessage.substring(0, Math.min(50, playerMessage.length())));
+            description = String.format("M'a dit: '%s' - C'était agréable",
+                playerMessage.substring(0, Math.min(50, playerMessage.length())));
+            emotionalImpact = Math.max(impact.positiveImpact, impact.affectionImpact);
+            IAMOD.LOGGER.info("💚 Creating POSITIVE memory (impact={})", emotionalImpact);
+        } else if (impact.aggressionImpact > 0.3 || impact.negativeImpact > 0.3) {
+            // Negative message → insulting memory
+            memoryType = net.frealac.iamod.ai.memory.MemoryType.WAS_INSULTED;
+            description = String.format("M'a dit: '%s' - C'était désagréable",
+                playerMessage.substring(0, Math.min(50, playerMessage.length())));
+            emotionalImpact = -Math.max(impact.negativeImpact, impact.aggressionImpact);
+            IAMOD.LOGGER.info("💔 Creating NEGATIVE memory (impact={})", emotionalImpact);
         } else {
+            // Neutral message → general interaction
             memoryType = net.frealac.iamod.ai.memory.MemoryType.GENERAL_INTERACTION;
-            description = String.format("A dit: '%s'", playerMessage.substring(0, Math.min(50, playerMessage.length())));
+            description = String.format("A dit: '%s'",
+                playerMessage.substring(0, Math.min(50, playerMessage.length())));
+            emotionalImpact = impact.overallSentiment * 0.5; // Mild impact for neutral
+            IAMOD.LOGGER.info("💬 Creating NEUTRAL memory (impact={})", emotionalImpact);
         }
 
-        story.interactionMemory.addMemory(memoryType, description, player.getUUID(), player.getName().getString());
+        // Create memory manually to override emotional impact
+        net.frealac.iamod.ai.memory.Memory memory = new net.frealac.iamod.ai.memory.Memory(
+            memoryType, description, player.getUUID(), player.getName().getString());
 
-        IAMOD.LOGGER.info("Added memory: {} - {}", memoryType, description);
+        // Override with AI-analyzed emotional impact
+        memory.setEmotionalImpact(emotionalImpact);
+
+        // Add to memory system
+        story.interactionMemory.addMemory(memory);
+
+        IAMOD.LOGGER.info("✓ Memory created with emotionalImpact={}, sentiment will update", emotionalImpact);
     }
 
     /**
