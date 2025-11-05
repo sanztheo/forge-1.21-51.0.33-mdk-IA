@@ -69,20 +69,9 @@ public class NetworkHandler {
                     if (sender == null) return;
                     var key = ConversationManager.key(sender.getUUID(), msg.getVillagerId());
 
-                    // Build an in-character system prompt from villager story (server-authoritative)
+                    // Get entity and villager ID for processing
                     var level = sender.serverLevel();
                     var ent = level.getEntity(msg.getVillagerId());
-                    String systemPromptDefault = "Tu es un villageois amical. Réponds en français, immersif, concis.";
-                    String systemPromptFinal = systemPromptDefault;
-                    if (ent instanceof net.minecraft.world.entity.npc.Villager v) {
-                        var cap = v.getCapability(net.frealac.iamod.common.story.VillagerStoryProvider.CAPABILITY).orElse(null);
-                        if (cap != null) {
-                            var s = cap.getStory();
-                            if (s != null) systemPromptFinal = OpenAiService.buildSystemPromptFromStory(s);
-                        }
-                    }
-                    ConversationManager.ensureSystem(key, systemPromptFinal);
-                    var history = ConversationManager.appendUserAndGetHistory(key, msg.getMessage());
                     final int idVillager = msg.getVillagerId();
 
                     // Track AI activity start (NEW)
@@ -96,18 +85,14 @@ public class NetworkHandler {
                             if (cap != null) {
                                 var story = cap.getStory();
 
-                                // 1. Get brain system for this villager FIRST (need mood for analysis)
+                                // 1. Get or create brain system for this villager
                                 net.frealac.iamod.ai.openai.OpenAiBrainService brainService = new net.frealac.iamod.ai.openai.OpenAiBrainService();
                                 net.frealac.iamod.ai.brain.VillagerBrainSystem brainSystem =
-                                    brainService.getBrainSystem(idVillager);
+                                    brainService.getOrCreateBrainSystem(idVillager, story);
 
                                 // 2. Get current emotional state for MOOD-CONGRUENT PROCESSING
-                                double currentMood = 0.0;
-                                double currentStress = 0.3;
-                                if (brainSystem != null) {
-                                    currentMood = brainSystem.getEmotionalBrain().getCurrentMood();
-                                    currentStress = brainSystem.getEmotionalBrain().getCurrentStress();
-                                }
+                                double currentMood = brainSystem.getEmotionalBrain().getCurrentMood();
+                                double currentStress = brainSystem.getEmotionalBrain().getCurrentStress();
 
                                 // 3. ANALYZE MESSAGE with AI including mood-congruent bias
                                 net.frealac.iamod.ai.brain.MessageAnalyzer.MessageImpact impact =
@@ -165,6 +150,46 @@ public class NetworkHandler {
                             net.frealac.iamod.IAMOD.LOGGER.error("Failed to process GUI message through brain modules", e);
                         }
                     }
+
+                    // GENERATE COMPREHENSIVE BRAIN CONTEXT (Stanford Generative Agents)
+                    // After brain modules have processed the message, generate the full context
+                    String systemPromptDefault = "Tu es un villageois amical. Réponds en français, immersif, concis.";
+                    String systemPromptFinal = systemPromptDefault;
+
+                    if (ent instanceof net.minecraft.world.entity.npc.Villager v) {
+                        var cap = v.getCapability(net.frealac.iamod.common.story.VillagerStoryProvider.CAPABILITY).orElse(null);
+                        if (cap != null) {
+                            var story = cap.getStory();
+                            if (story != null) {
+                                // Get the brain system (should exist after processing above)
+                                net.frealac.iamod.ai.openai.OpenAiBrainService brainService = new net.frealac.iamod.ai.openai.OpenAiBrainService();
+                                net.frealac.iamod.ai.brain.VillagerBrainSystem brainSystem = brainService.getBrainSystem(idVillager);
+
+                                if (brainSystem != null) {
+                                    // Generate comprehensive context from ALL brain modules:
+                                    // - EmotionalBrain: mood, stress, momentum
+                                    // - MemoryBrain: retrieval scoring (TOP 10 relevant memories)
+                                    // - SocialBrain: trust, trustDamage, relationship
+                                    // - GeneralBrain: coordination and synthesis
+                                    systemPromptFinal = brainSystem.processPlayerMessage(
+                                        sender.getUUID(),
+                                        msg.getMessage(),
+                                        story,
+                                        "Statut: en conversation"
+                                    );
+                                    net.frealac.iamod.IAMOD.LOGGER.info("🧠 Using comprehensive BRAIN CONTEXT ({} chars)", systemPromptFinal.length());
+                                } else {
+                                    // Fallback to basic story context
+                                    systemPromptFinal = OpenAiService.buildSystemPromptFromStory(story);
+                                    net.frealac.iamod.IAMOD.LOGGER.warn("⚠️ Brain system not found, using basic story context");
+                                }
+                            }
+                        }
+                    }
+
+                    // Update conversation with brain-enhanced context
+                    ConversationManager.ensureSystem(key, systemPromptFinal);
+                    var history = ConversationManager.appendUserAndGetHistory(key, msg.getMessage());
 
                     OpenAiService service = new OpenAiService();
                     service.chatStreamSSE(

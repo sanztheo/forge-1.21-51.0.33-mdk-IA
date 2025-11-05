@@ -93,8 +93,8 @@ public class OpenAiBrainService {
      * Get or create a brain system for a villager.
      * Caches brain systems to maintain state across interactions.
      */
-    private VillagerBrainSystem getOrCreateBrainSystem(int villagerId,
-                                                       net.frealac.iamod.common.story.VillagerStory story) {
+    public VillagerBrainSystem getOrCreateBrainSystem(int villagerId,
+                                                      net.frealac.iamod.common.story.VillagerStory story) {
         return brainSystems.computeIfAbsent(villagerId,
             id -> new VillagerBrainSystem(id, story));
     }
