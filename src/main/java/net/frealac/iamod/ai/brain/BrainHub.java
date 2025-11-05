@@ -44,12 +44,14 @@ public class BrainHub {
     /**
      * Broadcast a signal to all modules except the sender.
      * This simulates how brain regions communicate with each other.
+     * @param sender The module sending the signal, or null for external signals
      */
     public void broadcastSignal(BrainSignal signal, BrainModule sender) {
         // Add to history
         addToHistory(signal);
 
-        IAMOD.LOGGER.debug("Broadcasting signal: {} from {}", signal.getType(), sender.getModuleName());
+        String senderName = (sender != null) ? sender.getModuleName() : "External";
+        IAMOD.LOGGER.debug("Broadcasting signal: {} from {}", signal.getType(), senderName);
 
         // Send to all modules except sender
         for (BrainModule module : modules) {
