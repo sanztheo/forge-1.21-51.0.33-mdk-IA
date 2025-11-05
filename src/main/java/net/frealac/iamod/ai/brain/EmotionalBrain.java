@@ -20,6 +20,17 @@ public class EmotionalBrain extends BrainModule {
     private double currentStress;    // 0.0 (calme) à 1.0 (très stressé)
     private double resilience;       // Capacité à gérer le stress
 
+    // SCIENTIFIC EMOTIONAL INERTIA
+    private double moodMomentum;     // Rate of mood change (prevents instant shifts)
+    private double stressMomentum;   // Rate of stress change
+    private long lastUpdateTime;     // For decay calculations
+
+    // Emotional regulation parameters
+    private static final double MOOD_CHANGE_RATE_LIMIT = 0.05;    // Max mood change per event
+    private static final double STRESS_CHANGE_RATE_LIMIT = 0.08;  // Max stress change per event
+    private static final double MOOD_DECAY_RATE = 0.01;           // Decay toward baseline per hour
+    private static final double STRESS_DECAY_RATE = 0.02;         // Stress naturally reduces over time
+
     public EmotionalBrain(VillagerStory.Psychology psychology) {
         super("EmotionalBrain");
         this.psychology = psychology;
@@ -33,6 +44,10 @@ public class EmotionalBrain extends BrainModule {
             this.currentStress = 0.3;
             this.resilience = 0.5;
         }
+
+        this.moodMomentum = 0.0;
+        this.stressMomentum = 0.0;
+        this.lastUpdateTime = System.currentTimeMillis();
 
         IAMOD.LOGGER.info("🧠 EmotionalBrain initialized: mood={}, stress={}, resilience={}",
             currentMood, currentStress, resilience);
@@ -81,6 +96,26 @@ public class EmotionalBrain extends BrainModule {
                 }
                 break;
 
+            case POSITIVE_FEELING:
+                // Message positif du joueur → améliore humeur, réduit stress
+                Double positiveIntensity = (Double) signal.getData("intensity");
+                double posAmount = positiveIntensity != null ? positiveIntensity * 0.1 : 0.05;
+                increaseMood(posAmount);
+                decreaseStress(posAmount * 0.5);
+                IAMOD.LOGGER.info("💚 Positive feeling from message: mood +{}, stress -{}",
+                    posAmount, posAmount * 0.5);
+                break;
+
+            case NEGATIVE_FEELING:
+                // Message négatif du joueur → diminue humeur, augmente stress
+                Double negativeIntensity = (Double) signal.getData("intensity");
+                double negAmount = negativeIntensity != null ? negativeIntensity * 0.1 : 0.05;
+                decreaseMood(negAmount);
+                increaseStress(negAmount * 0.5);
+                IAMOD.LOGGER.info("💔 Negative feeling from message: mood -{}, stress +{}",
+                    negAmount, negAmount * 0.5);
+                break;
+
             default:
                 // Ignore other signals
                 break;
@@ -88,14 +123,59 @@ public class EmotionalBrain extends BrainModule {
     }
 
     /**
-     * Augmenter l'humeur (bonheur).
+     * Apply emotional decay (mood returns to baseline, stress reduces over time).
+     * SCIENTIFIC BASIS: Emotional homeostasis - emotions naturally regulate toward baseline.
+     */
+    private void applyEmotionalDecay() {
+        long currentTime = System.currentTimeMillis();
+        double hoursElapsed = (currentTime - lastUpdateTime) / (1000.0 * 60.0 * 60.0);
+        lastUpdateTime = currentTime;
+
+        if (hoursElapsed > 0) {
+            // Mood decay toward baseline
+            double moodBaseline = psychology != null ? psychology.moodBaseline : 0.0;
+            if (currentMood > moodBaseline) {
+                currentMood = Math.max(moodBaseline, currentMood - (MOOD_DECAY_RATE * hoursElapsed));
+            } else if (currentMood < moodBaseline) {
+                currentMood = Math.min(moodBaseline, currentMood + (MOOD_DECAY_RATE * hoursElapsed));
+            }
+
+            // Stress naturally reduces over time
+            if (currentStress > 0.1) {
+                currentStress = Math.max(0.1, currentStress - (STRESS_DECAY_RATE * hoursElapsed));
+            }
+
+            // Sync back to story
+            if (psychology != null) {
+                psychology.moodBaseline = currentMood;
+                psychology.stress = currentStress;
+            }
+        }
+    }
+
+    /**
+     * Augmenter l'humeur (bonheur) avec inertie émotionnelle.
+     * SCIENTIFIC BASIS: Emotions change gradually, not instantly.
      */
     private void increaseMood(double amount) {
-        double oldMood = currentMood;
-        currentMood = Math.min(1.0, currentMood + amount);
+        applyEmotionalDecay(); // Apply decay first
 
-        if (currentMood != oldMood) {
-            IAMOD.LOGGER.debug("😊 Mood increased: {} → {}", oldMood, currentMood);
+        double oldMood = currentMood;
+
+        // RATE LIMITING: Prevent instant mood shifts
+        double actualChange = Math.min(amount, MOOD_CHANGE_RATE_LIMIT);
+
+        // Apply momentum: resist large changes
+        if (Math.abs(amount - moodMomentum) > 0.1) {
+            actualChange *= 0.5; // Reduce change if direction shifts suddenly
+        }
+
+        currentMood = Math.min(1.0, currentMood + actualChange);
+        moodMomentum = actualChange;
+
+        if (Math.abs(currentMood - oldMood) > 0.01) {
+            IAMOD.LOGGER.debug("😊 Mood increased: {} → {} (requested +{}, applied +{})",
+                oldMood, currentMood, amount, actualChange);
             sendSignal(new BrainSignal(BrainSignal.SignalType.EMOTION_CHANGE, moduleName)
                 .withData("emotion", "happiness")
                 .withData("oldValue", oldMood)
@@ -109,14 +189,28 @@ public class EmotionalBrain extends BrainModule {
     }
 
     /**
-     * Diminuer l'humeur (tristesse).
+     * Diminuer l'humeur (tristesse) avec inertie émotionnelle.
+     * SCIENTIFIC BASIS: Negative emotions also change gradually.
      */
     private void decreaseMood(double amount) {
-        double oldMood = currentMood;
-        currentMood = Math.max(-1.0, currentMood - amount);
+        applyEmotionalDecay(); // Apply decay first
 
-        if (currentMood != oldMood) {
-            IAMOD.LOGGER.debug("😢 Mood decreased: {} → {}", oldMood, currentMood);
+        double oldMood = currentMood;
+
+        // RATE LIMITING: Prevent instant mood shifts
+        double actualChange = Math.min(amount, MOOD_CHANGE_RATE_LIMIT);
+
+        // Apply momentum: resist large changes
+        if (Math.abs(-amount - moodMomentum) > 0.1) {
+            actualChange *= 0.5; // Reduce change if direction shifts suddenly
+        }
+
+        currentMood = Math.max(-1.0, currentMood - actualChange);
+        moodMomentum = -actualChange;
+
+        if (Math.abs(currentMood - oldMood) > 0.01) {
+            IAMOD.LOGGER.debug("😢 Mood decreased: {} → {} (requested -{}, applied -{})",
+                oldMood, currentMood, amount, actualChange);
             sendSignal(new BrainSignal(BrainSignal.SignalType.EMOTION_CHANGE, moduleName)
                 .withData("emotion", "sadness")
                 .withData("oldValue", oldMood)
@@ -130,16 +224,24 @@ public class EmotionalBrain extends BrainModule {
     }
 
     /**
-     * Augmenter le stress.
+     * Augmenter le stress avec rate limiting.
+     * SCIENTIFIC BASIS: Stress accumulates but not instantly.
      */
     private void increaseStress(double amount) {
-        double oldStress = currentStress;
-        // La résilience réduit l'augmentation du stress
-        double actualIncrease = amount * (1.0 - resilience * 0.5);
-        currentStress = Math.min(1.0, currentStress + actualIncrease);
+        applyEmotionalDecay(); // Apply decay first
 
-        if (currentStress != oldStress) {
-            IAMOD.LOGGER.debug("😰 Stress increased: {} → {}", oldStress, currentStress);
+        double oldStress = currentStress;
+
+        // La résilience réduit l'augmentation du stress
+        double resilienceReduction = (1.0 - resilience * 0.5);
+        double actualIncrease = Math.min(amount * resilienceReduction, STRESS_CHANGE_RATE_LIMIT);
+
+        currentStress = Math.min(1.0, currentStress + actualIncrease);
+        stressMomentum = actualIncrease;
+
+        if (Math.abs(currentStress - oldStress) > 0.01) {
+            IAMOD.LOGGER.debug("😰 Stress increased: {} → {} (requested +{}, applied +{})",
+                oldStress, currentStress, amount, actualIncrease);
             sendSignal(new BrainSignal(BrainSignal.SignalType.STRESS_INCREASE, moduleName)
                 .withData("oldValue", oldStress)
                 .withData("newValue", currentStress));
@@ -152,14 +254,19 @@ public class EmotionalBrain extends BrainModule {
     }
 
     /**
-     * Diminuer le stress (relaxation).
+     * Diminuer le stress (relaxation) avec rate limiting.
      */
     private void decreaseStress(double amount) {
-        double oldStress = currentStress;
-        currentStress = Math.max(0.0, currentStress - amount);
+        applyEmotionalDecay(); // Apply decay first
 
-        if (currentStress != oldStress) {
-            IAMOD.LOGGER.debug("😌 Stress decreased: {} → {}", oldStress, currentStress);
+        double oldStress = currentStress;
+        double actualDecrease = Math.min(amount, STRESS_CHANGE_RATE_LIMIT);
+        currentStress = Math.max(0.0, currentStress - actualDecrease);
+        stressMomentum = -actualDecrease;
+
+        if (Math.abs(currentStress - oldStress) > 0.01) {
+            IAMOD.LOGGER.debug("😌 Stress decreased: {} → {} (requested -{}, applied -{})",
+                oldStress, currentStress, amount, actualDecrease);
             sendSignal(new BrainSignal(BrainSignal.SignalType.STRESS_DECREASE, moduleName)
                 .withData("oldValue", oldStress)
                 .withData("newValue", currentStress));

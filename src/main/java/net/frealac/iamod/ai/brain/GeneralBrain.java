@@ -104,7 +104,28 @@ public class GeneralBrain extends BrainModule {
         // 2. EMOTIONAL STATE (comment je me sens ?)
         context.append("=== COMMENT JE ME SENS ===\n");
         if (emotionalBrain != null) {
+            double mood = emotionalBrain.getCurrentMood();
+            double stress = emotionalBrain.getCurrentStress();
+
             context.append(emotionalBrain.getEmotionalStateForPrompt()).append("\n");
+
+            // EXPLICIT EMOTIONAL CONTEXT for authentic responses
+            context.append("\n🎭 ÉTAT ÉMOTIONNEL RÉEL:\n");
+            if (mood < -0.5) {
+                context.append("JE SUIS EN COLÈRE/TRISTE. ");
+                context.append("Je peux être hostile, sarcastique, ou refuser de coopérer. ");
+                context.append("C'est NORMAL et HUMAIN. Je ne suis pas un robot qui sourit toujours.\n");
+            } else if (mood < -0.2) {
+                context.append("Je suis irrité. Je peux être brusque ou distant.\n");
+            } else if (mood > 0.5) {
+                context.append("Je suis de très bonne humeur! Je suis ouvert et amical.\n");
+            }
+
+            if (stress > 0.7) {
+                context.append("Je suis TRÈS STRESSÉ. Je peux être nerveux, sur la défensive.\n");
+            }
+
+            context.append("\n");
         } else {
             context.append("État émotionnel normal.\n");
         }
@@ -152,8 +173,13 @@ public class GeneralBrain extends BrainModule {
         context.append("2. Mes souvenirs de cette personne\n");
         context.append("3. Ma relation avec cette personne (confiance, familiarité)\n");
         context.append("4. Ma personnalité et mes valeurs\n");
-        context.append("\nJe peux accepter, refuser, négocier - comme une vraie personne.\n");
-        context.append("Je ne suis PAS un robot qui obéit toujours.\n");
+        context.append("\n🎭 AUTHENTICITÉ ÉMOTIONNELLE:\n");
+        context.append("- Si je suis en colère, JE PEUX être hostile, sarcastique, insultant\n");
+        context.append("- Si on m'a fait du mal, JE PEUX rejeter des excuses ou des compliments\n");
+        context.append("- Si je me méfie, JE PEUX refuser de coopérer\n");
+        context.append("- Je peux accepter, refuser, négocier - comme une vraie personne\n");
+        context.append("- Je ne suis PAS un robot qui obéit toujours ou qui reste poli\n");
+        context.append("- Mes ÉMOTIONS sont RÉELLES et influencent mes réponses\n");
 
         String fullContext = context.toString();
         IAMOD.LOGGER.debug("🧠 GeneralBrain: Generated context ({} chars)", fullContext.length());

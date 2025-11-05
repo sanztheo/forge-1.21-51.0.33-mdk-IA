@@ -33,12 +33,61 @@ public class SocialBrain extends BrainModule {
         public long lastInteractionTime;
         public String lastKnownName;
 
+        // SCIENTIFIC TRUST REPAIR MECHANISM
+        public double trustDamage;          // 0.0 to 1.0 - accumulated trust violations
+        public int violationCount;          // Number of trust violations (hits, betrayals)
+        public long lastViolationTime;      // Timestamp of last violation
+
+        // Trust repair is SLOW and requires consistent positive actions
+        private static final double TRUST_REPAIR_RATE = 0.01;     // Per positive interaction
+        private static final double TRUST_DAMAGE_DECAY = 0.005;   // Per day without violations
+        private static final double VIOLATION_PENALTY = 0.3;       // Trust damage per violation
+
         public RelationshipData() {
             this.trustLevel = 0.5;          // Neutral au début
             this.intimacy = 0.0;            // Pas familier au début
             this.totalInteractions = 0;
             this.lastInteractionTime = 0;
             this.lastKnownName = "Joueur";
+            this.trustDamage = 0.0;
+            this.violationCount = 0;
+            this.lastViolationTime = 0;
+        }
+
+        /**
+         * Calculate effective trust level accounting for damage.
+         * SCIENTIFIC BASIS: Trust violations create lasting damage that's slow to repair.
+         */
+        public double getEffectiveTrust() {
+            // Trust damage reduces effective trust
+            return Math.max(0.0, trustLevel - (trustDamage * 0.5));
+        }
+
+        /**
+         * Record a trust violation (hit, betrayal, aggression).
+         * SCIENTIFIC BASIS: Violations accumulate and persist.
+         */
+        public void recordViolation() {
+            trustDamage = Math.min(1.0, trustDamage + VIOLATION_PENALTY);
+            violationCount++;
+            lastViolationTime = System.currentTimeMillis();
+        }
+
+        /**
+         * Attempt to repair trust through positive interaction.
+         * SCIENTIFIC BASIS: Trust repair is slow and requires consistency.
+         */
+        public void repairTrust() {
+            if (trustDamage > 0) {
+                // Trust repairs slowly with positive interactions
+                trustDamage = Math.max(0.0, trustDamage - TRUST_REPAIR_RATE);
+            }
+
+            // Natural decay of trust damage over time (forgiveness)
+            long daysSinceViolation = (System.currentTimeMillis() - lastViolationTime) / (1000 * 60 * 60 * 24);
+            if (daysSinceViolation > 0 && trustDamage > 0) {
+                trustDamage = Math.max(0.0, trustDamage - (TRUST_DAMAGE_DECAY * daysSinceViolation));
+            }
         }
     }
 
@@ -75,17 +124,25 @@ public class SocialBrain extends BrainModule {
                 break;
 
             case POSITIVE_FEELING:
-                // Sentiment positif - améliorer la relation
+                // Sentiment positif - améliorer la relation ET réparer trust damage
                 if (currentConversationPartner != null) {
-                    adjustTrust(currentConversationPartner, 0.1);
+                    RelationshipData rel = getOrCreateRelationship(currentConversationPartner);
+                    rel.repairTrust(); // SLOW trust repair through positive interaction
+                    adjustTrust(currentConversationPartner, 0.05); // Smaller increase
                     adjustIntimacy(currentConversationPartner, 0.05);
+                    IAMOD.LOGGER.debug("🧠 SocialBrain: Positive feeling, repairing trust (damage: {})",
+                        rel.trustDamage);
                 }
                 break;
 
             case NEGATIVE_FEELING:
-                // Sentiment négatif - détériorer la relation
+                // Sentiment négatif - détériorer la relation ET enregistrer violation
                 if (currentConversationPartner != null) {
-                    adjustTrust(currentConversationPartner, -0.2);
+                    RelationshipData rel = getOrCreateRelationship(currentConversationPartner);
+                    rel.recordViolation(); // Record trust damage
+                    adjustTrust(currentConversationPartner, -0.15);
+                    IAMOD.LOGGER.warn("🧠 SocialBrain: Negative feeling, trust violation recorded (damage: {})",
+                        rel.trustDamage);
                 }
                 break;
 
@@ -143,28 +200,37 @@ public class SocialBrain extends BrainModule {
         if (interactionType != null) {
             switch (interactionType) {
                 case "gift":
-                    adjustTrust(playerUuid, 0.15);
+                    rel.repairTrust(); // Gifts help repair trust
+                    adjustTrust(playerUuid, 0.08); // Smaller increase with repair
                     adjustIntimacy(playerUuid, 0.1);
                     break;
                 case "attack":
-                    adjustTrust(playerUuid, -0.3);
+                    rel.recordViolation(); // MAJOR trust violation
+                    adjustTrust(playerUuid, -0.25);
+                    IAMOD.LOGGER.warn("⚔️ SocialBrain: Attack violation recorded! Trust damage: {}",
+                        rel.trustDamage);
                     break;
                 case "help":
-                    adjustTrust(playerUuid, 0.1);
+                    rel.repairTrust();
+                    adjustTrust(playerUuid, 0.05);
                     adjustIntimacy(playerUuid, 0.05);
                     break;
                 case "affection":
-                    // Message d'affection → améliorer trust et intimacy
-                    double affectionAmount = intensity != null ? intensity * 0.2 : 0.1;
+                    // Message d'affection → améliorer trust et intimacy BUT NOT instant reset
+                    rel.repairTrust(); // Slow repair
+                    double affectionAmount = intensity != null ? intensity * 0.08 : 0.04; // MUCH smaller
                     adjustTrust(playerUuid, affectionAmount);
                     adjustIntimacy(playerUuid, affectionAmount * 0.5);
-                    IAMOD.LOGGER.info("💕 SocialBrain: Affection from player, trust +{}", affectionAmount);
+                    IAMOD.LOGGER.info("💕 SocialBrain: Affection, slow trust repair (damage: {})",
+                        rel.trustDamage);
                     break;
                 case "aggression":
-                    // Message agressif → détériorer trust
-                    double aggressionAmount = intensity != null ? intensity * -0.3 : -0.2;
+                    // Message agressif → VIOLATION
+                    rel.recordViolation(); // Record as violation
+                    double aggressionAmount = intensity != null ? intensity * -0.2 : -0.15;
                     adjustTrust(playerUuid, aggressionAmount);
-                    IAMOD.LOGGER.info("💢 SocialBrain: Aggression from player, trust {}", aggressionAmount);
+                    IAMOD.LOGGER.warn("💢 SocialBrain: Aggression violation (damage: {}, count: {})",
+                        rel.trustDamage, rel.violationCount);
                     break;
             }
         }
@@ -227,17 +293,30 @@ public class SocialBrain extends BrainModule {
         RelationshipData rel = getOrCreateRelationship(playerUuid);
         StringBuilder context = new StringBuilder();
 
-        // Trust description
-        if (rel.trustLevel > 0.8) {
+        // Trust description with DAMAGE awareness
+        double effectiveTrust = rel.getEffectiveTrust();
+
+        if (rel.trustDamage > 0.5) {
+            context.append("Cette personne m'a gravement blessé. Je ne lui fais plus confiance. ");
+        } else if (rel.trustDamage > 0.3) {
+            context.append("Cette personne m'a fait du mal. Je reste sur mes gardes. ");
+        } else if (effectiveTrust > 0.8) {
             context.append("Je fais totalement confiance à cette personne. ");
-        } else if (rel.trustLevel > 0.6) {
+        } else if (effectiveTrust > 0.6) {
             context.append("Je fais plutôt confiance à cette personne. ");
-        } else if (rel.trustLevel > 0.4) {
+        } else if (effectiveTrust > 0.4) {
             context.append("Je suis neutre envers cette personne. ");
-        } else if (rel.trustLevel > 0.2) {
+        } else if (effectiveTrust > 0.2) {
             context.append("Je me méfie un peu de cette personne. ");
         } else {
             context.append("Je ne fais pas du tout confiance à cette personne. ");
+        }
+
+        // Mention violation count if significant
+        if (rel.violationCount > 3) {
+            context.append(String.format("Cette personne m'a fait du mal %d fois. ", rel.violationCount));
+        } else if (rel.violationCount > 0) {
+            context.append("Cette personne m'a déjà fait du mal. ");
         }
 
         // Intimacy description

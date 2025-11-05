@@ -25,8 +25,12 @@ public class MessageAnalyzer {
      * Returns a MessageImpact with scores for different dimensions.
      *
      * Uses STRICT JSON mode for reliable parsing.
+     *
+     * @param message The player's message
+     * @param currentMood Current villager mood (-1.0 to 1.0) for mood-congruent processing
+     * @param currentStress Current villager stress (0.0 to 1.0)
      */
-    public static MessageImpact analyzeMessage(String message) {
+    public static MessageImpact analyzeMessage(String message, double currentMood, double currentStress) {
         if (message == null || message.isEmpty()) {
             return new MessageImpact();
         }
@@ -37,10 +41,10 @@ public class MessageAnalyzer {
 
             JsonArray messages = new JsonArray();
 
-            // System prompt for analysis
+            // System prompt for analysis WITH mood-congruent context
             JsonObject system = new JsonObject();
             system.addProperty("role", "system");
-            system.addProperty("content", buildAnalysisPrompt());
+            system.addProperty("content", buildAnalysisPrompt(currentMood, currentStress));
             messages.add(system);
 
             // User message to analyze
@@ -75,25 +79,72 @@ public class MessageAnalyzer {
     }
 
     /**
-     * Build analysis system prompt.
+     * Build analysis system prompt with MOOD-CONGRUENT PROCESSING.
+     * SCIENTIFIC BASIS: Current emotional state biases interpretation of new events.
+     *
+     * @param currentMood Villager's current mood (-1.0 to 1.0)
+     * @param currentStress Villager's current stress (0.0 to 1.0)
      */
-    private static String buildAnalysisPrompt() {
-        return "Tu es un analyseur d'émotions. Analyse le message du joueur et réponds en JSON STRICT.\n\n" +
-               "Détecte:\n" +
-               "- positiveImpact: 0.0 à 1.0 (compliments, gentillesse)\n" +
-               "- negativeImpact: 0.0 à 1.0 (insultes, méchanceté)\n" +
-               "- affectionImpact: 0.0 à 1.0 (amour, amitié, affection)\n" +
-               "- aggressionImpact: 0.0 à 1.0 (violence, menaces, agression)\n" +
-               "- overallSentiment: -1.0 à 1.0 (sentiment global)\n\n" +
-               "Format JSON:\n" +
-               "{\n" +
-               "  \"positiveImpact\": 0.5,\n" +
-               "  \"negativeImpact\": 0.0,\n" +
-               "  \"affectionImpact\": 0.3,\n" +
-               "  \"aggressionImpact\": 0.0,\n" +
-               "  \"overallSentiment\": 0.8,\n" +
-               "  \"reasoning\": \"Message positif avec compliment\"\n" +
-               "}";
+    private static String buildAnalysisPrompt(double currentMood, double currentStress) {
+        StringBuilder prompt = new StringBuilder();
+
+        prompt.append("Tu es un analyseur d'émotions. Analyse le message du joueur et réponds en JSON STRICT.\n\n");
+
+        // MOOD-CONGRUENT PROCESSING CONTEXT
+        prompt.append("=== ÉTAT ÉMOTIONNEL ACTUEL DU VILLAGEOIS ===\n");
+        prompt.append(String.format("Humeur actuelle: %.2f ", currentMood));
+        if (currentMood < -0.5) {
+            prompt.append("(TRÈS EN COLÈRE/TRISTE - Interprète les messages négativement)\n");
+            prompt.append("BIAIS: Quand on est en colère, même les compliments semblent sarcastiques.\n");
+            prompt.append("EXEMPLE: 'Tu es génial' → Perçu comme 'Tu te moques de moi?'\n\n");
+        } else if (currentMood < -0.2) {
+            prompt.append("(Irrité - Tendance à interpréter négativement)\n");
+            prompt.append("BIAIS: Messages neutres perçus comme légèrement négatifs.\n\n");
+        } else if (currentMood > 0.5) {
+            prompt.append("(TRÈS JOYEUX - Interprète positivement)\n");
+            prompt.append("BIAIS: Tendance à voir le positif même dans messages ambigus.\n\n");
+        } else {
+            prompt.append("(Neutre)\n\n");
+        }
+
+        prompt.append(String.format("Stress actuel: %.2f ", currentStress));
+        if (currentStress > 0.7) {
+            prompt.append("(TRÈS STRESSÉ - Sensible aux menaces)\n");
+            prompt.append("BIAIS: Messages perçus comme plus agressifs/menaçants.\n\n");
+        } else {
+            prompt.append("(Calme)\n\n");
+        }
+
+        prompt.append("=== INSTRUCTIONS D'ANALYSE ===\n");
+        prompt.append("Analyse le message EN TENANT COMPTE de l'état émotionnel actuel.\n");
+        prompt.append("Si le villageois est en colère, un compliment peut être perçu comme sarcastique.\n");
+        prompt.append("Si stressé, un message neutre peut sembler menaçant.\n\n");
+
+        prompt.append("Détecte:\n");
+        prompt.append("- positiveImpact: 0.0 à 1.0 (compliments, gentillesse)\n");
+        prompt.append("- negativeImpact: 0.0 à 1.0 (insultes, méchanceté)\n");
+        prompt.append("- affectionImpact: 0.0 à 1.0 (amour, amitié, affection)\n");
+        prompt.append("- aggressionImpact: 0.0 à 1.0 (violence, menaces, agression)\n");
+        prompt.append("- overallSentiment: -1.0 à 1.0 (sentiment global APRÈS biais émotionnel)\n\n");
+
+        prompt.append("Format JSON:\n");
+        prompt.append("{\n");
+        prompt.append("  \"positiveImpact\": 0.5,\n");
+        prompt.append("  \"negativeImpact\": 0.0,\n");
+        prompt.append("  \"affectionImpact\": 0.3,\n");
+        prompt.append("  \"aggressionImpact\": 0.0,\n");
+        prompt.append("  \"overallSentiment\": 0.8,\n");
+        prompt.append("  \"reasoning\": \"Message positif mais villageois en colère donc perçu comme sarcastique\"\n");
+        prompt.append("}");
+
+        return prompt.toString();
+    }
+
+    /**
+     * Backward compatibility: analyze without mood context.
+     */
+    public static MessageImpact analyzeMessage(String message) {
+        return analyzeMessage(message, 0.0, 0.3); // Default neutral mood
     }
 
     /**

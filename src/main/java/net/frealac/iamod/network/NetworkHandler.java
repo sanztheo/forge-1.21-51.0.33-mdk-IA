@@ -96,25 +96,34 @@ public class NetworkHandler {
                             if (cap != null) {
                                 var story = cap.getStory();
 
-                                // 1. ANALYZE MESSAGE with AI (sentiment, emotions, impact)
-                                net.frealac.iamod.ai.brain.MessageAnalyzer.MessageImpact impact =
-                                    net.frealac.iamod.ai.brain.MessageAnalyzer.analyzeMessage(msg.getMessage());
-
-                                net.frealac.iamod.IAMOD.LOGGER.info("💬 GUI Message impact: sentiment={} ({})",
-                                    impact.overallSentiment, impact.getDescription());
-
-                                // 2. Get brain system for this villager
+                                // 1. Get brain system for this villager FIRST (need mood for analysis)
                                 net.frealac.iamod.ai.openai.OpenAiBrainService brainService = new net.frealac.iamod.ai.openai.OpenAiBrainService();
                                 net.frealac.iamod.ai.brain.VillagerBrainSystem brainSystem =
                                     brainService.getBrainSystem(idVillager);
 
-                                // 3. SEND SIGNALS to brain modules based on message impact
+                                // 2. Get current emotional state for MOOD-CONGRUENT PROCESSING
+                                double currentMood = 0.0;
+                                double currentStress = 0.3;
+                                if (brainSystem != null) {
+                                    currentMood = brainSystem.getEmotionalBrain().getCurrentMood();
+                                    currentStress = brainSystem.getEmotionalBrain().getCurrentStress();
+                                }
+
+                                // 3. ANALYZE MESSAGE with AI including mood-congruent bias
+                                net.frealac.iamod.ai.brain.MessageAnalyzer.MessageImpact impact =
+                                    net.frealac.iamod.ai.brain.MessageAnalyzer.analyzeMessage(
+                                        msg.getMessage(), currentMood, currentStress);
+
+                                net.frealac.iamod.IAMOD.LOGGER.info("💬 GUI Message impact: sentiment={} (mood={}, stress={}) ({})",
+                                    impact.overallSentiment, currentMood, currentStress, impact.getDescription());
+
+                                // 4. SEND SIGNALS to brain modules based on message impact
                                 if (brainSystem != null) {
                                     net.frealac.iamod.ai.brain.MessageAnalyzer.sendBrainSignals(
                                         impact, brainSystem, sender.getUUID());
                                 }
 
-                                // 4. Add interaction memory based on MESSAGE IMPACT
+                                // 5. Add interaction memory based on MESSAGE IMPACT
                                 if (story.interactionMemory == null) {
                                     story.interactionMemory = new net.frealac.iamod.ai.memory.VillagerMemory();
                                 }

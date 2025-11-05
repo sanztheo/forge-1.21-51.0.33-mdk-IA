@@ -30,8 +30,21 @@ public class Memory {
     @SerializedName("importance")
     private double importance; // 0.0 to 1.0 - how memorable this is
 
+    // SCIENTIFIC MEMORY CONSOLIDATION
+    @SerializedName("strength")
+    private double strength; // 0.0 to 1.0 - consolidation strength (increases over time)
+
+    @SerializedName("arousal_level")
+    private double arousalLevel; // 0.0 to 1.0 - emotional arousal at encoding (affects consolidation speed)
+
+    @SerializedName("consolidation_rate")
+    private double consolidationRate; // Rate at which memory consolidates
+
     public Memory() {
         this.timestamp = System.currentTimeMillis();
+        this.strength = 0.3; // Start weak, consolidate over time
+        this.arousalLevel = 0.5; // Default neutral arousal
+        this.consolidationRate = 0.01; // Base consolidation rate per hour
     }
 
     public Memory(MemoryType type, String description, UUID playerUuid, String playerName) {
@@ -42,6 +55,10 @@ public class Memory {
         this.playerName = playerName;
         this.emotionalImpact = type.getBaseEmotionalImpact();
         this.importance = calculateImportance(type);
+
+        // Higher emotional impact = higher arousal = faster consolidation
+        this.arousalLevel = Math.min(1.0, Math.abs(type.getBaseEmotionalImpact()) * 1.5);
+        this.consolidationRate = 0.01 + (this.arousalLevel * 0.02); // 0.01 to 0.03 per hour
     }
 
     /**
@@ -78,6 +95,37 @@ public class Memory {
      */
     public boolean isRecent() {
         return getHoursAgo() < 1.0;
+    }
+
+    /**
+     * Consolidate this memory over time (called periodically).
+     * Memories strengthen gradually based on arousal level and time.
+     * Scientific basis: Memory consolidation in hippocampus.
+     */
+    public void consolidate() {
+        double hoursElapsed = getHoursAgo();
+        if (hoursElapsed > 0 && strength < 1.0) {
+            // Consolidation formula: strength increases logarithmically
+            double consolidationProgress = consolidationRate * Math.log1p(hoursElapsed);
+            strength = Math.min(1.0, 0.3 + consolidationProgress);
+        }
+    }
+
+    /**
+     * Get effective emotional impact weighted by memory strength.
+     * Stronger memories have more influence on current mood.
+     */
+    public double getEffectiveEmotionalImpact() {
+        return emotionalImpact * strength;
+    }
+
+    /**
+     * Get weighted importance for mood calculation.
+     * Recent strong memories influence mood more than old weak ones.
+     */
+    public double getWeightedImportance() {
+        double recencyWeight = Math.max(0.1, 1.0 - (getHoursAgo() / 168.0)); // Decay over 1 week
+        return importance * strength * recencyWeight;
     }
 
     /**
@@ -176,9 +224,33 @@ public class Memory {
         this.importance = importance;
     }
 
+    public double getStrength() {
+        return strength;
+    }
+
+    public void setStrength(double strength) {
+        this.strength = strength;
+    }
+
+    public double getArousalLevel() {
+        return arousalLevel;
+    }
+
+    public void setArousalLevel(double arousalLevel) {
+        this.arousalLevel = arousalLevel;
+    }
+
+    public double getConsolidationRate() {
+        return consolidationRate;
+    }
+
+    public void setConsolidationRate(double consolidationRate) {
+        this.consolidationRate = consolidationRate;
+    }
+
     @Override
     public String toString() {
-        return String.format("Memory{type=%s, desc='%s', player=%s, impact=%.2f, %s}",
-                type, description, playerName, emotionalImpact, getTimeDescription());
+        return String.format("Memory{type=%s, desc='%s', player=%s, impact=%.2f, strength=%.2f, %s}",
+                type, description, playerName, emotionalImpact, strength, getTimeDescription());
     }
 }
