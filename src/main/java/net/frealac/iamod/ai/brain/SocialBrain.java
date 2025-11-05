@@ -138,6 +138,8 @@ public class SocialBrain extends BrainModule {
         RelationshipData rel = getOrCreateRelationship(playerUuid);
 
         String interactionType = (String) signal.getData("type");
+        Double intensity = (Double) signal.getData("intensity");
+
         if (interactionType != null) {
             switch (interactionType) {
                 case "gift":
@@ -150,6 +152,19 @@ public class SocialBrain extends BrainModule {
                 case "help":
                     adjustTrust(playerUuid, 0.1);
                     adjustIntimacy(playerUuid, 0.05);
+                    break;
+                case "affection":
+                    // Message d'affection → améliorer trust et intimacy
+                    double affectionAmount = intensity != null ? intensity * 0.2 : 0.1;
+                    adjustTrust(playerUuid, affectionAmount);
+                    adjustIntimacy(playerUuid, affectionAmount * 0.5);
+                    IAMOD.LOGGER.info("💕 SocialBrain: Affection from player, trust +{}", affectionAmount);
+                    break;
+                case "aggression":
+                    // Message agressif → détériorer trust
+                    double aggressionAmount = intensity != null ? intensity * -0.3 : -0.2;
+                    adjustTrust(playerUuid, aggressionAmount);
+                    IAMOD.LOGGER.info("💢 SocialBrain: Aggression from player, trust {}", aggressionAmount);
                     break;
             }
         }

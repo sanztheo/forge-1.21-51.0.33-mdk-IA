@@ -94,8 +94,6 @@ public class ChatHandler {
                     getVillagerName(story), player.getName().getString(), message, actions.size());
 
             // Execute each action decided by the brain
-            boolean hadPositiveInteraction = false;
-            boolean hadNegativeInteraction = false;
             String villagerResponse = null;
 
             for (AIAction action : actions) {
@@ -105,18 +103,10 @@ public class ChatHandler {
                 if (action.actionType == AIAction.ActionType.SPEAK && action.message != null) {
                     villagerResponse = action.message;
                 }
-
-                // Track interaction type
-                if (action.actionType == AIAction.ActionType.ENABLE_GOAL ||
-                    action.actionType == AIAction.ActionType.ENABLE_ALL_GOALS) {
-                    hadPositiveInteraction = true;
-                } else if (action.actionType == AIAction.ActionType.NOTHING) {
-                    hadNegativeInteraction = true;
-                }
             }
 
-            // Add interaction memory
-            addInteractionMemory(story, player, message, villagerResponse, hadPositiveInteraction, hadNegativeInteraction);
+            // Add interaction memory based on MESSAGE IMPACT (not villager actions)
+            addInteractionMemory(story, player, message, villagerResponse, impact);
 
             // Track AI activity SUCCESS
             net.frealac.iamod.server.AIActivityTracker.finishAiProcessing(villager.getId(), true);
@@ -304,11 +294,12 @@ public class ChatHandler {
     }
 
     /**
-     * Add interaction memory automatically based on chat.
+     * Add interaction memory automatically based on message impact.
+     * Uses AI-analyzed emotional impact to create appropriate memories.
      */
     private static void addInteractionMemory(VillagerStory story, ServerPlayer player,
                                             String playerMessage, String villagerResponse,
-                                            boolean positive, boolean negative) {
+                                            net.frealac.iamod.ai.brain.MessageAnalyzer.MessageImpact impact) {
         if (story.interactionMemory == null) {
             story.interactionMemory = new net.frealac.iamod.ai.memory.VillagerMemory();
         }
@@ -326,24 +317,46 @@ public class ChatHandler {
             IAMOD.LOGGER.info("Villager learned player name: {}", player.getName().getString());
         }
 
-        // Create general interaction memory
+        // Create memory based on MESSAGE IMPACT (not villager action)
         net.frealac.iamod.ai.memory.MemoryType memoryType;
         String description;
+        double emotionalImpact;
 
-        if (positive) {
+        // Determine memory type and impact based on message analysis
+        if (impact.affectionImpact > 0.3 || impact.positiveImpact > 0.3) {
+            // Positive message → pleasant memory
             memoryType = net.frealac.iamod.ai.memory.MemoryType.PLEASANT_CONVERSATION;
-            description = String.format("A dit: '%s' - J'ai accepté de l'aider", playerMessage.substring(0, Math.min(50, playerMessage.length())));
-        } else if (negative) {
-            memoryType = net.frealac.iamod.ai.memory.MemoryType.GENERAL_INTERACTION;
-            description = String.format("A dit: '%s' - Je l'ai ignoré", playerMessage.substring(0, Math.min(50, playerMessage.length())));
+            description = String.format("M'a dit: '%s' - C'était agréable",
+                playerMessage.substring(0, Math.min(50, playerMessage.length())));
+            emotionalImpact = Math.max(impact.positiveImpact, impact.affectionImpact);
+            IAMOD.LOGGER.info("💚 Creating POSITIVE memory (impact={})", emotionalImpact);
+        } else if (impact.aggressionImpact > 0.3 || impact.negativeImpact > 0.3) {
+            // Negative message → insulting memory
+            memoryType = net.frealac.iamod.ai.memory.MemoryType.WAS_INSULTED;
+            description = String.format("M'a dit: '%s' - C'était désagréable",
+                playerMessage.substring(0, Math.min(50, playerMessage.length())));
+            emotionalImpact = -Math.max(impact.negativeImpact, impact.aggressionImpact);
+            IAMOD.LOGGER.info("💔 Creating NEGATIVE memory (impact={})", emotionalImpact);
         } else {
+            // Neutral message → general interaction
             memoryType = net.frealac.iamod.ai.memory.MemoryType.GENERAL_INTERACTION;
-            description = String.format("A dit: '%s'", playerMessage.substring(0, Math.min(50, playerMessage.length())));
+            description = String.format("A dit: '%s'",
+                playerMessage.substring(0, Math.min(50, playerMessage.length())));
+            emotionalImpact = impact.overallSentiment * 0.5; // Mild impact for neutral
+            IAMOD.LOGGER.info("💬 Creating NEUTRAL memory (impact={})", emotionalImpact);
         }
 
-        story.interactionMemory.addMemory(memoryType, description, player.getUUID(), player.getName().getString());
+        // Create memory manually to override emotional impact
+        net.frealac.iamod.ai.memory.Memory memory = new net.frealac.iamod.ai.memory.Memory(
+            memoryType, description, player.getUUID(), player.getName().getString());
 
-        IAMOD.LOGGER.info("Added memory: {} - {}", memoryType, description);
+        // Override with AI-analyzed emotional impact
+        memory.setEmotionalImpact(emotionalImpact);
+
+        // Add to memory system
+        story.interactionMemory.addMemory(memory);
+
+        IAMOD.LOGGER.info("✓ Memory created with emotionalImpact={}, sentiment will update", emotionalImpact);
     }
 
     /**

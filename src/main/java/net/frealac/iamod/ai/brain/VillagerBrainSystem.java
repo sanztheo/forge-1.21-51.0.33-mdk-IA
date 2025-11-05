@@ -67,6 +67,15 @@ public class VillagerBrainSystem {
         IAMOD.LOGGER.info("🧠 Brain System: Processing message from player {}", playerUuid);
 
         try {
+            // 0. SIGNAL START OF CONVERSATION - notify SocialBrain
+            BrainSignal conversationStart = new BrainSignal(
+                BrainSignal.SignalType.CONVERSATION_START,
+                "VillagerBrainSystem"
+            );
+            conversationStart.withData("playerUuid", playerUuid);
+            hub.broadcastSignal(conversationStart, null);
+            IAMOD.LOGGER.debug("🧠 Brain System: Conversation started with {}", playerUuid);
+
             // 1. GeneralBrain analyzes the interaction
             generalBrain.analyzePlayerInteraction(playerUuid, message);
 

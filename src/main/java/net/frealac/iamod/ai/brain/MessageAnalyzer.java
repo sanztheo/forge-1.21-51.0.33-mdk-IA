@@ -181,14 +181,14 @@ public class MessageAnalyzer {
             IAMOD.LOGGER.info("💚 Positive message detected, sending positive feeling signal");
         }
 
-        if (impact.negativeImpact < -0.3 || impact.aggressionImpact < -0.3) {
+        if (impact.negativeImpact > 0.3 || impact.aggressionImpact > 0.3) {
             // Message très négatif → sentiment négatif
             BrainSignal negativeSignal = new BrainSignal(
                 BrainSignal.SignalType.NEGATIVE_FEELING,
                 "MessageAnalyzer"
             );
             negativeSignal.withData("reason", "negative_message");
-            negativeSignal.withData("intensity", Math.abs(Math.min(impact.negativeImpact, impact.aggressionImpact)));
+            negativeSignal.withData("intensity", Math.max(impact.negativeImpact, impact.aggressionImpact));
             negativeSignal.withData("playerUuid", playerUuid);
             hub.broadcastSignal(negativeSignal, null);
 
@@ -210,7 +210,7 @@ public class MessageAnalyzer {
             IAMOD.LOGGER.info("💕 Affection detected, improving relationship");
         }
 
-        if (impact.aggressionImpact < -0.0) {
+        if (impact.aggressionImpact > 0.0) {
             // Message agressif → détériorer la relation
             BrainSignal aggressionSignal = new BrainSignal(
                 BrainSignal.SignalType.PLAYER_INTERACTION,
@@ -218,21 +218,21 @@ public class MessageAnalyzer {
             );
             aggressionSignal.withData("playerUuid", playerUuid);
             aggressionSignal.withData("type", "aggression");
-            aggressionSignal.withData("intensity", Math.abs(impact.aggressionImpact));
+            aggressionSignal.withData("intensity", impact.aggressionImpact);
             hub.broadcastSignal(aggressionSignal, null);
 
             IAMOD.LOGGER.info("💢 Aggression detected, degrading relationship");
         }
 
         // SIGNAL DE STRESS
-        if (impact.aggressionImpact < -0.4) {
+        if (impact.aggressionImpact > 0.4) {
             // Agression forte → augmenter le stress
             BrainSignal stressSignal = new BrainSignal(
                 BrainSignal.SignalType.PHYSICAL_PAIN,
                 "MessageAnalyzer"
             );
             stressSignal.withData("reason", "verbal_aggression");
-            stressSignal.withData("intensity", Math.abs(impact.aggressionImpact));
+            stressSignal.withData("intensity", impact.aggressionImpact);
             hub.broadcastSignal(stressSignal, null);
 
             IAMOD.LOGGER.info("😰 Strong aggression detected, increasing stress");
