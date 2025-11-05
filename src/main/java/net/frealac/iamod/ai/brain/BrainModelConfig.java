@@ -31,7 +31,7 @@ public class BrainModelConfig {
         BRAIN_CONFIGS.put("EmotionalBrain", new BrainConfig(
             "gpt-3.5-turbo",    // Ultra rapide
             0.3,                // Temperature (précis)
-            500,                // Max tokens (augmenté pour analyse détaillée)
+            2000,                // Max tokens (augmenté pour analyse détaillée)
             true                // Enable AI assistance
         ));
 
@@ -39,7 +39,7 @@ public class BrainModelConfig {
         BRAIN_CONFIGS.put("MemoryBrain", new BrainConfig(
             "gpt-3.5-turbo",    // Backup si besoin
             0.2,                // Temperature (très précis)
-            500,                // Max tokens
+            2000,                // Max tokens
             false               // LOCAL ONLY - pas d'appel IA
         ));
 
@@ -47,7 +47,7 @@ public class BrainModelConfig {
         BRAIN_CONFIGS.put("SocialBrain", new BrainConfig(
             "gpt-3.5-turbo",    // Backup si besoin
             0.3,                // Temperature (précis)
-            500,                // Max tokens
+            2000,                // Max tokens
             false               // LOCAL ONLY - pas d'appel IA
         ));
 
@@ -63,7 +63,7 @@ public class BrainModelConfig {
         BRAIN_CONFIGS.put("MessageAnalyzer", new BrainConfig(
             "gpt-3.5-turbo",    // Ultra rapide
             0.3,                // Temperature (précis)
-            500,                // Max tokens (augmenté pour analyse détaillée)
+            2000,                // Max tokens (augmenté pour analyse détaillée)
             true                // AI enabled
         ));
     }
