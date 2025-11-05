@@ -32,6 +32,8 @@ public class ChatHandler {
         ServerPlayer player = event.getPlayer();
         String message = event.getRawText();
 
+        IAMOD.LOGGER.info("🎤 ChatHandler: Player {} said: '{}'", player.getName().getString(), message);
+
         // Find nearby villagers within interaction radius
         AABB searchBox = player.getBoundingBox().inflate(INTERACTION_RADIUS);
         List<Villager> nearbyVillagers = player.level().getEntitiesOfClass(
@@ -39,6 +41,8 @@ public class ChatHandler {
                 searchBox,
                 villager -> villager.isAlive() && !villager.isBaby()
         );
+
+        IAMOD.LOGGER.info("🎤 ChatHandler: Found {} nearby villagers", nearbyVillagers.size());
 
         if (nearbyVillagers.isEmpty()) {
             return; // No villagers nearby to hear the message
