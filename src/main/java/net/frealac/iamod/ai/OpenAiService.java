@@ -59,7 +59,7 @@ public class OpenAiService {
         messages.add(user);
 
         root.add("messages", messages);
-        root.addProperty("temperature", 0.7);
+        root.addProperty("temperature", 1.0);  // Increased for more emotional variety
         root.addProperty("max_tokens", 3000);
 
         HttpRequest request = HttpRequest.newBuilder(CHAT_URI)
@@ -96,7 +96,7 @@ public class OpenAiService {
             messages.add(j);
         }
         root.add("messages", messages);
-        root.addProperty("temperature", 0.7);
+        root.addProperty("temperature", 1.0);  // Increased for more emotional variety
         root.addProperty("max_tokens", 3000);
 
         HttpRequest request = HttpRequest.newBuilder(CHAT_URI)
@@ -136,7 +136,7 @@ public class OpenAiService {
                     messages.add(j);
                 }
                 root.add("messages", messages);
-                root.addProperty("temperature", 0.7);
+                root.addProperty("temperature", 1.0);  // Increased for more emotional variety
                 root.addProperty("max_tokens", 3000);
                 root.addProperty("stream", true);
 

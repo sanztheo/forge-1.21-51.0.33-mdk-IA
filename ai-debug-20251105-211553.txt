@@ -1,0 +1,104 @@
+[05nov.2025 21:16:07.163] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: Initialized GOALS mode for entity 498 with 3 goals
+[05nov.2025 21:16:13.136] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: Initialized GOALS mode for entity 610 with 3 goals
+[05nov.2025 21:16:13.789] [Server thread/ERROR] [net.frealac.iamod.IAMOD/]: Failed to get VillagerStory
+[05nov.2025 21:16:14.388] [Server thread/ERROR] [net.frealac.iamod.IAMOD/]: Failed to get VillagerStory
+[05nov.2025 21:16:15.088] [Render thread/ERROR] [net.frealac.iamod.IAMOD/]: Failed to get VillagerStory
+[05nov.2025 21:16:15.093] [Render thread/ERROR] [net.frealac.iamod.IAMOD/]: Failed to get VillagerStory
+[05nov.2025 21:16:16.389] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: Villager Loam remembers being hit by Dev
+[05nov.2025 21:16:16.389] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: Villager mood decreased to -0.19827365005349162 and stress increased to 0.3253744677299043
+[05nov.2025 21:16:17.088] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: Villager Loam remembers being hit by Dev
+[05nov.2025 21:16:17.088] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: Villager mood decreased to -0.2982736500534916 and stress increased to 0.5253744677299044
+[05nov.2025 21:16:17.838] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: Villager Loam remembers being hit by Dev
+[05nov.2025 21:16:17.838] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: Villager mood decreased to -0.3982736500534916 and stress increased to 0.7253744677299043
+[05nov.2025 21:16:18.638] [Render thread/ERROR] [net.frealac.iamod.IAMOD/]: Failed to get VillagerStory
+[05nov.2025 21:16:18.638] [Render thread/ERROR] [net.frealac.iamod.IAMOD/]: Failed to get VillagerStory
+[05nov.2025 21:16:22.876] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: 🧠 Initializing Brain System for villager ID=610
+[05nov.2025 21:16:22.877] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: 🧠 EmotionalBrain initialized: mood=-0.3982736500534916, stress=0.7253744677299043, resilience=0.4118147961251303
+[05nov.2025 21:16:22.877] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: 🧠 MemoryBrain initialized with 3 memories
+[05nov.2025 21:16:22.877] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: 🧠 SocialBrain initialized
+[05nov.2025 21:16:22.877] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: 🧠 GeneralBrain initialized - Coordinating 3 specialized brains
+[05nov.2025 21:16:22.877] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: Brain module registered: EmotionalBrain
+[05nov.2025 21:16:22.877] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: Brain module registered: MemoryBrain
+[05nov.2025 21:16:22.877] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: Brain module registered: SocialBrain
+[05nov.2025 21:16:22.877] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: Brain module registered: GeneralBrain
+[05nov.2025 21:16:22.877] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: ✓ Brain System initialized with 4 modules connected via hub
+[05nov.2025 21:16:24.663] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: 🧠 AI Analysis: sentiment=0.6, positive=0.5, negative=0.0, affection=0.8, aggression=0.0 (Message positif mais villageois en colère donc perçu comme sarcastique)
+[05nov.2025 21:16:24.663] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: 💬 GUI Message impact: sentiment=0.6 (mood=-0.3982736500534916, stress=0.7253744677299043) (Message positif mais villageois en colère donc perçu comme sarcastique)
+[05nov.2025 21:16:24.666] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: 💚 Positive feeling from message: mood +0.08000000000000002, stress -0.04000000000000001
+[05nov.2025 21:16:24.666] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: 💚 Positive message detected, sending positive feeling signal
+[05nov.2025 21:16:24.666] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: 💕 SocialBrain: Affection, slow trust repair (damage: 0.0)
+[05nov.2025 21:16:24.666] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: 💕 Affection detected, improving relationship
+[05nov.2025 21:16:24.666] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: 💚 Creating POSITIVE GUI memory (impact=0.8)
+[05nov.2025 21:16:24.666] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: ✓ GUI Memory created, brain modules updated
+[05nov.2025 21:16:24.667] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: 🧠 Brain System: Processing message from player 380df991-f603-344c-a090-369bad2a924a
+[05nov.2025 21:16:24.667] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: 🧠 GeneralBrain: Analyzing player interaction
+[05nov.2025 21:16:24.667] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: 🧠 GeneralBrain: Generating comprehensive context for player 380df991-f603-344c-a090-369bad2a924a
+[05nov.2025 21:16:24.669] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: 🧠 Using comprehensive BRAIN CONTEXT (1910 chars)
+[05nov.2025 21:16:53.638] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: Villager Loam remembers being hit by Dev
+[05nov.2025 21:16:53.639] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: Villager mood decreased to -0.4482736500534916 and stress increased to 0.8853645288410155
+[05nov.2025 21:16:54.338] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: Villager Loam remembers being hit by Dev
+[05nov.2025 21:16:54.338] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: Villager mood decreased to -0.5482736500534916 and stress increased to 1.0
+[05nov.2025 21:16:55.337] [Render thread/ERROR] [net.frealac.iamod.IAMOD/]: Failed to get VillagerStory
+[05nov.2025 21:16:55.338] [Render thread/ERROR] [net.frealac.iamod.IAMOD/]: Failed to get VillagerStory
+[05nov.2025 21:17:01.145] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: 🧠 AI Analysis: sentiment=0.8, positive=0.5, negative=0.0, affection=0.3, aggression=0.0 (Message positif mais villageois en colère donc perçu comme sarcastique)
+[05nov.2025 21:17:01.146] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: 💬 GUI Message impact: sentiment=0.8 (mood=-0.3482736500534916, stress=0.6853645288410154) (Message positif mais villageois en colère donc perçu comme sarcastique)
+[05nov.2025 21:17:01.146] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: 💚 Positive feeling from message: mood +0.05, stress -0.025
+[05nov.2025 21:17:01.146] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: 💚 Positive message detected, sending positive feeling signal
+[05nov.2025 21:17:01.147] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: 💕 SocialBrain: Affection, slow trust repair (damage: 0.0)
+[05nov.2025 21:17:01.147] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: 💕 Affection detected, improving relationship
+[05nov.2025 21:17:01.147] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: 💚 Creating POSITIVE GUI memory (impact=0.5)
+[05nov.2025 21:17:01.147] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: ✓ GUI Memory created, brain modules updated
+[05nov.2025 21:17:01.148] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: 🧠 Brain System: Processing message from player 380df991-f603-344c-a090-369bad2a924a
+[05nov.2025 21:17:01.149] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: 🧠 GeneralBrain: Analyzing player interaction
+[05nov.2025 21:17:01.150] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: 🧠 GeneralBrain: Generating comprehensive context for player 380df991-f603-344c-a090-369bad2a924a
+[05nov.2025 21:17:01.150] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: 🧠 Using comprehensive BRAIN CONTEXT (2209 chars)
+[05nov.2025 21:17:40.043] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: Villager Loam remembers being hit by Dev
+[05nov.2025 21:17:40.045] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: Villager mood decreased to -0.39837498616460276 and stress increased to 0.8601618566187932
+[05nov.2025 21:17:40.643] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: Villager Loam remembers being hit by Dev
+[05nov.2025 21:17:40.643] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: Villager mood decreased to -0.49837498616460274 and stress increased to 1.0
+[05nov.2025 21:17:41.243] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: Villager Loam remembers being hit by Dev
+[05nov.2025 21:17:41.243] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: Villager mood decreased to -0.5983749861646027 and stress increased to 1.0
+[05nov.2025 21:17:41.843] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: Villager Loam remembers being hit by Dev
+[05nov.2025 21:17:41.843] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: Villager mood decreased to -0.6983749861646027 and stress increased to 1.0
+[05nov.2025 21:17:42.393] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: Villager Loam remembers being hit by Dev
+[05nov.2025 21:17:42.393] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: Villager mood decreased to -0.7983749861646027 and stress increased to 1.0
+[05nov.2025 21:17:50.194] [Render thread/ERROR] [net.frealac.iamod.IAMOD/]: Failed to get VillagerStory
+[05nov.2025 21:17:50.196] [Render thread/ERROR] [net.frealac.iamod.IAMOD/]: Failed to get VillagerStory
+[05nov.2025 21:17:53.794] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: Villager Loam remembers being hit by Dev
+[05nov.2025 21:17:53.794] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: Villager mood decreased to -0.8983749861646027 and stress increased to 1.0
+[05nov.2025 21:17:54.794] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: Villager Loam remembers being hit by Dev
+[05nov.2025 21:17:54.794] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: Villager mood decreased to -0.9983749861646026 and stress increased to 1.0
+[05nov.2025 21:17:55.394] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: Villager Loam remembers being hit by Dev
+[05nov.2025 21:17:55.394] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: Villager mood decreased to -1.0 and stress increased to 1.0
+[05nov.2025 21:17:55.994] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: Villager Loam remembers being hit by Dev
+[05nov.2025 21:17:55.994] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: Villager mood decreased to -1.0 and stress increased to 1.0
+[05nov.2025 21:17:56.194] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: Villager Loam remembers being hit by Dev
+[05nov.2025 21:17:56.194] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: Villager mood decreased to -1.0 and stress increased to 1.0
+[05nov.2025 21:17:56.494] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: Villager Loam remembers being hit by Dev
+[05nov.2025 21:17:56.494] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: Villager mood decreased to -1.0 and stress increased to 1.0
+[05nov.2025 21:17:57.094] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: Villager Loam remembers being hit by Dev
+[05nov.2025 21:17:57.094] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: Villager mood decreased to -1.0 and stress increased to 1.0
+[05nov.2025 21:18:00.794] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: Villager Loam remembers being hit by Dev
+[05nov.2025 21:18:00.794] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: Villager mood decreased to -1.0 and stress increased to 1.0
+[05nov.2025 21:18:01.293] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: Villager Loam remembers being hit by Dev
+[05nov.2025 21:18:01.294] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: Villager mood decreased to -1.0 and stress increased to 1.0
+[05nov.2025 21:18:01.894] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: Villager Loam remembers being hit by Dev
+[05nov.2025 21:18:01.894] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: Villager mood decreased to -1.0 and stress increased to 1.0
+[05nov.2025 21:18:02.094] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: Villager Loam remembers being hit by Dev
+[05nov.2025 21:18:02.094] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: Villager mood decreased to -1.0 and stress increased to 1.0
+[05nov.2025 21:18:02.394] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: Villager Loam remembers being hit by Dev
+[05nov.2025 21:18:02.394] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: Villager mood decreased to -1.0 and stress increased to 1.0
+[05nov.2025 21:18:03.494] [Render thread/ERROR] [net.frealac.iamod.IAMOD/]: Failed to get VillagerStory
+[05nov.2025 21:18:03.494] [Render thread/ERROR] [net.frealac.iamod.IAMOD/]: Failed to get VillagerStory
+[05nov.2025 21:18:08.549] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: 🧠 AI Analysis: sentiment=0.5, positive=0.5, negative=0.0, affection=0.8, aggression=0.0 (Message positif mais villageois en colère donc perçu comme sarcastique)
+[05nov.2025 21:18:08.550] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: 💬 GUI Message impact: sentiment=0.5 (mood=-0.29837498616460273, stress=0.6601618566187931) (Message positif mais villageois en colère donc perçu comme sarcastique)
+[05nov.2025 21:18:08.550] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: 💚 Positive feeling from message: mood +0.08000000000000002, stress -0.04000000000000001
+[05nov.2025 21:18:08.550] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: 💚 Positive message detected, sending positive feeling signal
+[05nov.2025 21:18:08.551] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: 💕 SocialBrain: Affection, slow trust repair (damage: 0.0)
+[05nov.2025 21:18:08.551] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: 💕 Affection detected, improving relationship
+[05nov.2025 21:18:08.551] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: 💚 Creating POSITIVE GUI memory (impact=0.8)
+[05nov.2025 21:18:08.551] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: ✓ GUI Memory created, brain modules updated
+[05nov.2025 21:18:08.551] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: 🧠 Brain System: Processing message from player 380df991-f603-344c-a090-369bad2a924a
+[05nov.2025 21:18:08.551] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: 🧠 GeneralBrain: Analyzing player interaction
+[05nov.2025 21:18:08.552] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: 🧠 GeneralBrain: Generating comprehensive context for player 380df991-f603-344c-a090-369bad2a924a
+[05nov.2025 21:18:08.552] [Server thread/INFO] [net.frealac.iamod.IAMOD/]: 🧠 Using comprehensive BRAIN CONTEXT (2455 chars)

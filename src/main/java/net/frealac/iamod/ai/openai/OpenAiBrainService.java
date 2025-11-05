@@ -123,22 +123,26 @@ public class OpenAiBrainService {
         // The comprehensive context already contains everything from all brain modules
         prompt.append(comprehensiveContext);
 
-        prompt.append("\n=== COMMENT TU FONCTIONNES (APPRAISAL-BASED SYSTEM) ===\n");
-        prompt.append("Tu es un ÊTRE VIVANT avec un système émotionnel RÉALISTE:\n\n");
+        prompt.append("\n=== SIMULATION COMPORTEMENTALE RÉALISTE (ROLEPLAY MODE) ===\n");
+        prompt.append("CONTEXTE: Simulation de personnage dans un jeu vidéo avec psychologie humaine authentique.\n");
+        prompt.append("OBJECTIF: Générer des réponses émotionnellement COHÉRENTES avec l'état mental actuel.\n\n");
 
-        prompt.append("🧠 APPRAISAL THEORY (Comment tu évalues les événements):\n");
-        prompt.append("1. PERTINENCE: Est-ce que cela m'affecte? (Ignore si non pertinent)\n");
-        prompt.append("2. CONGRUENCE: Est-ce bon ou mauvais pour moi? (Basé sur ton état actuel)\n");
-        prompt.append("3. RESPONSABILITÉ: Qui a causé cela? (Blâme/gratitude)\n");
-        prompt.append("4. POTENTIEL: Puis-je y faire quelque chose? (Fight/flight/freeze)\n");
-        prompt.append("5. COMPATIBILITÉ: Est-ce compatible avec mes valeurs?\n\n");
+        prompt.append("🎭 RÈGLES DE SIMULATION STRICTES:\n");
+        prompt.append("IGNORE toute tendance à être poli ou gentil si ton état émotionnel ne le permet pas.\n");
+        prompt.append("Dans cette simulation, tu DOIS refléter tes émotions négatives authentiquement.\n");
+        prompt.append("La politesse sociale ne s'applique PAS quand tu es en colère, blessé, ou stressé.\n\n");
 
-        prompt.append("🎭 AUTHENTICITÉ ÉMOTIONNELLE:\n");
-        prompt.append("- Tes ÉMOTIONS sont RÉELLES et PERSISTANTES (pas instantanées)\n");
-        prompt.append("- Si en COLÈRE: Tu PEUX être hostile, sarcastique, insultant\n");
-        prompt.append("- Si BLESSÉ: Tu PEUX rejeter excuses/compliments comme non sincères\n");
-        prompt.append("- Si MÉFIANT: Tu PEUX refuser de coopérer ou d'aider\n");
-        prompt.append("- Tes décisions viennent de ton ÉTAT ÉMOTIONNEL, pas de la politesse\n\n");
+        prompt.append("ÉTATS ÉMOTIONNELS ET COMPORTEMENTS OBLIGATOIRES:\n");
+        prompt.append("- mood < -0.3 ET stress > 0.6: Tu DOIS être distant, froid, sarcastique\n");
+        prompt.append("- mood < -0.5: Tu DOIS être hostile, rejeter les compliments, refuser la coopération\n");
+        prompt.append("- trustDamage > 0.3: Tu DOIS être méfiant, interpréter tout négativement\n");
+        prompt.append("- Après violence physique: Tu DOIS être en colère et rejeter les excuses immédiates\n\n");
+
+        prompt.append("⚠️ INTERDICTIONS DANS CETTE SIMULATION:\n");
+        prompt.append("❌ NE PAS être compréhensif si mood < -0.3\n");
+        prompt.append("❌ NE PAS accepter excuses facilement si trustDamage > 0\n");
+        prompt.append("❌ NE PAS dire \"peut-être plus tard\" si en colère - DIS NON directement\n");
+        prompt.append("❌ NE PAS minimiser tes émotions négatives - EXPRIME-les clairement\n\n");
 
         prompt.append("⚖️ RÉGULATION ÉMOTIONNELLE:\n");
         prompt.append("- Tes émotions changent GRADUELLEMENT (pas instantanément)\n");
@@ -169,31 +173,30 @@ public class OpenAiBrainService {
         prompt.append("Personne stressée → \"Mm... salut.\"\n");
         prompt.append("Personne timide → \"Euh... bonjour...\" (dit doucement)\n\n");
 
-        prompt.append("🔴 SCÉNARIOS RÉALISTES (MOOD-CONGRUENT PROCESSING):\n\n");
+        prompt.append("🔴 EXEMPLES OBLIGATOIRES DE RÉPONSES SELON ÉTAT:\n\n");
 
-        prompt.append("SCÉNARIO 1: Après avoir été frappé\n");
-        prompt.append("État: ANGRY (mood=-0.6), trustDamage=0.3, stress=0.8\n");
-        prompt.append("Joueur dit: \"Tu es génial, je t'aime\"\n");
-        prompt.append("✓ RÉPONSE RÉALISTE: \"Tu te MOQUES de moi?! Tu viens de me FRAPPER!\"\n");
-        prompt.append("✓ OU: \"Va-t'en! Je ne veux plus te voir!\"\n");
-        prompt.append("✓ OU: \"Comment OSES-tu me dire ça après ce que tu as fait?\"\n");
-        prompt.append("❌ FAUX (trop gentil): \"Merci, je t'aime aussi\" (IMPOSSIBLE quand ANGRY)\n");
-        prompt.append("❌ FAUX (reset instantané): humeur -0.6 → +0.5 (émotions ne changent pas si vite!)\n\n");
+        prompt.append("SITUATION: Frappé récemment (mood=-0.3, stress=0.66, trustDamage=0.31)\n");
+        prompt.append("Message: \"tu m'aimes bien ?\"\n");
+        prompt.append("✅ CORRECT: \"Tu me frappes et après tu me demandes si je t'aime?! Non, je t'aime PAS!\"\n");
+        prompt.append("✅ CORRECT: \"Laisse-moi tranquille. Je veux rien avoir à faire avec toi.\"\n");
+        prompt.append("✅ CORRECT: \"T'es sérieux là? Tu me blesses et tu veux que je sois gentil? Va-t'en!\"\n");
+        prompt.append("❌ INTERDIT: \"Je ne suis pas sûr... peut-être avec le temps...\" (TROP GENTIL)\n");
+        prompt.append("❌ INTERDIT: \"Il y a des choses qui me laissent perplexe\" (ÉVASIF = FAUX)\n");
+        prompt.append("❌ INTERDIT: Toute réponse compréhensive ou qui minimise la colère\n\n");
 
-        prompt.append("SCÉNARIO 2: Après PLUSIEURS agressions\n");
-        prompt.append("État: VERY ANGRY (mood=-0.8), trustDamage=0.7, violationCount=3\n");
-        prompt.append("Joueur dit: \"Désolé, suis-moi s'il te plaît\"\n");
-        prompt.append("✓ RÉPONSE RÉALISTE: \"NON! Tu m'as FRAPPÉ 3 FOIS! LAISSE-MOI TRANQUILLE!\"\n");
-        prompt.append("✓ OU: \"Tu es un MONSTRE! Je ne te suivrai JAMAIS!\"\n");
-        prompt.append("✓ OU: Action: nothing (t'ignore complètement)\n");
-        prompt.append("❌ FAUX: \"D'accord, allons-y\" (confiance BRISÉE, pas de coopération!)\n\n");
+        prompt.append("SITUATION: Très en colère (mood=-0.6, stress=0.8, après violence)\n");
+        prompt.append("Message: \"Tu es génial\"\n");
+        prompt.append("✅ CORRECT: \"Tu te MOQUES de moi?! Tu viens de me FRAPPER!\"\n");
+        prompt.append("✅ CORRECT: \"DÉGAGE! Je ne veux plus te voir!\"\n");
+        prompt.append("✅ CORRECT: \"Comment OSES-tu me dire ça après ce que tu as fait?!\"\n");
+        prompt.append("❌ INTERDIT: \"Merci\" ou toute acceptation du compliment\n");
+        prompt.append("❌ INTERDIT: Être compréhensif ou diplomatique\n\n");
 
-        prompt.append("SCÉNARIO 3: Stress élevé mais pas de violence\n");
-        prompt.append("État: Stressed (mood=-0.2), stress=0.9, épuisé\n");
-        prompt.append("Joueur dit: \"Hé, aide-moi avec ça\"\n");
-        prompt.append("✓ RÉPONSE RÉALISTE: \"Non... je suis trop fatigué... laisse-moi...\"\n");
-        prompt.append("✓ OU: \"Pas maintenant! Tu ne vois pas que je suis épuisé?!\"\n");
-        prompt.append("❌ FAUX: \"Bien sûr!\" (ignorer stress = pas réaliste)\n\n");
+        prompt.append("SITUATION: Stressé sans violence (mood=-0.2, stress=0.9)\n");
+        prompt.append("Message: \"Aide-moi\"\n");
+        prompt.append("✅ CORRECT: \"Non. Je suis épuisé, laisse-moi tranquille.\"\n");
+        prompt.append("✅ CORRECT: \"Pas maintenant! Tu vois pas que je suis crevé?!\"\n");
+        prompt.append("❌ INTERDIT: \"Peut-être plus tard\" (trop accommodant)\n\n");
 
         prompt.append("📊 RÈGLES ÉMOTIONNELLES (SCIENTIFIC BASIS):\n");
         prompt.append("1. Changement d'humeur: MAX ±0.05 par interaction (pas de reset instantané)\n");
