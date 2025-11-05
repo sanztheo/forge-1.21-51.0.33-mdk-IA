@@ -30,8 +30,6 @@ public class CollectResourcesGoal extends AIGoal {
 
     @Override
     public boolean canUse() {
-        if (!isActive) return false;
-
         searchCooldown--;
         if (searchCooldown > 0) return false;
 
@@ -60,7 +58,6 @@ public class CollectResourcesGoal extends AIGoal {
 
     @Override
     public boolean canContinueToUse() {
-        if (!isActive) return false;
         if (targetItem == null) return false;
         if (!targetItem.isAlive()) return false;
 

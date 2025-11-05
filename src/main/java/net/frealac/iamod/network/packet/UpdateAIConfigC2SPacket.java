@@ -1,13 +1,6 @@
 package net.frealac.iamod.network.packet;
 
-import net.frealac.iamod.ai.data.AIDataProvider;
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.Mob;
-import net.minecraftforge.network.NetworkEvent;
-
-import java.util.function.Supplier;
 
 /**
  * Packet to update AI configuration from client to server.
@@ -35,19 +28,15 @@ public class UpdateAIConfigC2SPacket {
         buf.writeBoolean(enabled);
     }
 
-    public void handle(Supplier<NetworkEvent.Context> ctx) {
-        ctx.get().enqueueWork(() -> {
-            ServerPlayer player = ctx.get().getSender();
-            if (player == null) return;
+    public int getEntityId() {
+        return entityId;
+    }
 
-            Entity entity = player.level().getEntity(entityId);
-            if (!(entity instanceof Mob mob)) return;
+    public String getGoalName() {
+        return goalName;
+    }
 
-            // Update AI data capability
-            mob.getCapability(AIDataProvider.CAPABILITY).ifPresent(aiData -> {
-                aiData.getData().setGoalEnabled(goalName, enabled);
-            });
-        });
-        ctx.get().setPacketHandled(true);
+    public boolean isEnabled() {
+        return enabled;
     }
 }

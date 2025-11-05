@@ -135,13 +135,26 @@ public class NetworkHandler {
         CHANNEL.messageBuilder(OpenAIConfigS2CPacket.class, id++, NetworkDirection.PLAY_TO_CLIENT)
                 .encoder(OpenAIConfigS2CPacket::encode)
                 .decoder(OpenAIConfigS2CPacket::new)
-                .consumerMainThread(OpenAIConfigS2CPacket::handle)
+                .consumerMainThread((msg, ctx) -> {
+                    Minecraft.getInstance().setScreen(new net.frealac.iamod.client.screen.AIConfigScreen(msg.getEntityId()));
+                })
                 .add();
 
         CHANNEL.messageBuilder(UpdateAIConfigC2SPacket.class, id++, NetworkDirection.PLAY_TO_SERVER)
                 .encoder(UpdateAIConfigC2SPacket::encode)
                 .decoder(UpdateAIConfigC2SPacket::new)
-                .consumerMainThread(UpdateAIConfigC2SPacket::handle)
+                .consumerMainThread((msg, ctx) -> {
+                    ServerPlayer player = ctx.getSender();
+                    if (player == null) return;
+
+                    var entity = player.level().getEntity(msg.getEntityId());
+                    if (!(entity instanceof net.minecraft.world.entity.Mob mob)) return;
+
+                    // Update AI data capability
+                    mob.getCapability(net.frealac.iamod.ai.data.AIDataProvider.CAPABILITY).ifPresent(aiData -> {
+                        aiData.getData().setGoalEnabled(msg.getGoalName(), msg.isEnabled());
+                    });
+                })
                 .add();
     }
 

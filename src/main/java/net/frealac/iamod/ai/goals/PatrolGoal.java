@@ -39,12 +39,12 @@ public class PatrolGoal extends AIGoal {
 
     @Override
     public boolean canUse() {
-        return !patrolPoints.isEmpty() && isActive;
+        return !patrolPoints.isEmpty();
     }
 
     @Override
     public boolean canContinueToUse() {
-        return !patrolPoints.isEmpty() && isActive;
+        return !patrolPoints.isEmpty();
     }
 
     @Override

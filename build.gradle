@@ -115,6 +115,9 @@ repositories {
     // Put repositories for dependencies here
     // ForgeGradle automatically adds the Forge maven and Maven Central for you
 
+    // Minecraft Libraries (required for LWJGL natives on macOS)
+    maven { url 'https://libraries.minecraft.net' }
+
     // For gdx-ai (AI library with behavior trees and state machines)
     maven { url 'https://oss.sonatype.org/content/repositories/snapshots/' }
     maven { url 'https://oss.sonatype.org/content/repositories/releases/' }

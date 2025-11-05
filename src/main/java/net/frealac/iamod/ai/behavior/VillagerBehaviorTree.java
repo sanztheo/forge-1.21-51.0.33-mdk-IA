@@ -1,6 +1,7 @@
 package net.frealac.iamod.ai.behavior;
 
 import com.badlogic.gdx.ai.btree.BehaviorTree;
+import com.badlogic.gdx.ai.btree.LeafTask;
 import com.badlogic.gdx.ai.btree.Task;
 import com.badlogic.gdx.ai.btree.branch.Selector;
 import com.badlogic.gdx.ai.btree.branch.Sequence;
@@ -93,7 +94,7 @@ public class VillagerBehaviorTree {
     /**
      * Check if villager needs sleep (based on time of day).
      */
-    private static class CheckNeedsSleepTask extends Task<Villager> {
+    private static class CheckNeedsSleepTask extends LeafTask<Villager> {
         @Override
         public Status execute() {
             Villager villager = getObject();
@@ -109,7 +110,7 @@ public class VillagerBehaviorTree {
         }
     }
 
-    private static class GoToBedTask extends Task<Villager> {
+    private static class GoToBedTask extends LeafTask<Villager> {
         @Override
         public Status execute() {
             // In a real implementation, navigate to bed
@@ -122,7 +123,7 @@ public class VillagerBehaviorTree {
         }
     }
 
-    private static class SleepTask extends Task<Villager> {
+    private static class SleepTask extends LeafTask<Villager> {
         @Override
         public Status execute() {
             Villager villager = getObject();
@@ -139,7 +140,7 @@ public class VillagerBehaviorTree {
     /**
      * Check if villager needs food.
      */
-    private static class CheckNeedsFoodTask extends Task<Villager> {
+    private static class CheckNeedsFoodTask extends LeafTask<Villager> {
         @Override
         public Status execute() {
             Villager villager = getObject();
@@ -154,7 +155,7 @@ public class VillagerBehaviorTree {
         }
     }
 
-    private static class FindFoodTask extends Task<Villager> {
+    private static class FindFoodTask extends LeafTask<Villager> {
         @Override
         public Status execute() {
             // In a real implementation, search for food in the area
@@ -167,7 +168,7 @@ public class VillagerBehaviorTree {
         }
     }
 
-    private static class EatTask extends Task<Villager> {
+    private static class EatTask extends LeafTask<Villager> {
         @Override
         public Status execute() {
             // In a real implementation, consume food item
@@ -183,7 +184,7 @@ public class VillagerBehaviorTree {
     /**
      * Check if villager needs to work.
      */
-    private static class CheckNeedsWorkTask extends Task<Villager> {
+    private static class CheckNeedsWorkTask extends LeafTask<Villager> {
         @Override
         public Status execute() {
             Villager villager = getObject();
@@ -199,7 +200,7 @@ public class VillagerBehaviorTree {
         }
     }
 
-    private static class GoToWorkstationTask extends Task<Villager> {
+    private static class GoToWorkstationTask extends LeafTask<Villager> {
         @Override
         public Status execute() {
             // In a real implementation, navigate to workstation
@@ -212,7 +213,7 @@ public class VillagerBehaviorTree {
         }
     }
 
-    private static class WorkTask extends Task<Villager> {
+    private static class WorkTask extends LeafTask<Villager> {
         @Override
         public Status execute() {
             // In a real implementation, perform work activities
@@ -228,7 +229,7 @@ public class VillagerBehaviorTree {
     /**
      * Check if villager needs social interaction.
      */
-    private static class CheckNeedsSocialTask extends Task<Villager> {
+    private static class CheckNeedsSocialTask extends LeafTask<Villager> {
         private int ticksSinceLastSocial = 0;
 
         @Override
@@ -248,7 +249,7 @@ public class VillagerBehaviorTree {
         }
     }
 
-    private static class FindNearbyVillagerTask extends Task<Villager> {
+    private static class FindNearbyVillagerTask extends LeafTask<Villager> {
         @Override
         public Status execute() {
             Villager villager = getObject();
@@ -267,7 +268,7 @@ public class VillagerBehaviorTree {
         }
     }
 
-    private static class SocializeTask extends Task<Villager> {
+    private static class SocializeTask extends LeafTask<Villager> {
         @Override
         public Status execute() {
             // In a real implementation, perform social interactions
@@ -283,7 +284,7 @@ public class VillagerBehaviorTree {
     /**
      * Default wander behavior.
      */
-    private static class WanderTask extends Task<Villager> {
+    private static class WanderTask extends LeafTask<Villager> {
         @Override
         public Status execute() {
             // In a real implementation, wander around

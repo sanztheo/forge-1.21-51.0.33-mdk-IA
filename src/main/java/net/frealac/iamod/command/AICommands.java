@@ -87,8 +87,9 @@ public class AICommands {
                 }
             }
 
+            final int finalCount = count;
             source.sendSuccess(
-                () -> Component.literal("Set AI mode to " + mode + " for " + count + " entities"),
+                () -> Component.literal("Set AI mode to " + mode + " for " + finalCount + " entities"),
                 true
             );
             return Command.SINGLE_SUCCESS;
@@ -124,26 +125,49 @@ public class AICommands {
                 return 0;
             }
 
+            // Basic info
             source.sendSuccess(
                 () -> Component.literal("§a=== AI Info ===\n" +
                     "§7Entity: §f" + nearestMob.getName().getString() + "\n" +
+                    "§7UUID: §f" + nearestMob.getStringUUID().substring(0, 8) + "...\n" +
                     "§7Mode: §f" + manager.getMode().name() + "\n" +
                     "§7Position: §f" + nearestMob.blockPosition().toShortString()
                 ),
                 false
             );
 
-            // Show active goals if in GOALS mode
+            // Show goals info if in GOALS mode
             if (manager.getMode() == BehaviorManager.BehaviorMode.GOALS && manager.getGoalManager() != null) {
-                var activeGoals = manager.getGoalManager().getActiveGoals();
-                if (!activeGoals.isEmpty()) {
+                var goalManager = manager.getGoalManager();
+                var allGoals = goalManager.getGoals();
+                var currentGoal = goalManager.getCurrentPriorityGoal();
+
+                // Show all registered goals
+                source.sendSuccess(
+                    () -> Component.literal("§6=== Registered Goals (" + allGoals.size() + ") ==="),
+                    false
+                );
+
+                for (var goal : allGoals) {
+                    String status = goal.isActive() ? "§a✓" : "§c✗";
+                    String current = (goal == currentGoal) ? " §e⚡ ACTIVE" : "";
                     source.sendSuccess(
-                        () -> Component.literal("§7Active Goals: §f" +
-                            activeGoals.stream()
-                                .map(g -> g.getDescription())
-                                .reduce((a, b) -> a + ", " + b)
-                                .orElse("None")
-                        ),
+                        () -> Component.literal(status + " §7Priority " + goal.getPriority() + ": §f" +
+                            goal.getDescription() + current),
+                        false
+                    );
+                }
+
+                // Show current active goal
+                if (currentGoal != null) {
+                    source.sendSuccess(
+                        () -> Component.literal("\n§e=== Current Goal ===\n" +
+                            "§f" + currentGoal.getDescription() + " §7(Priority " + currentGoal.getPriority() + ")"),
+                        false
+                    );
+                } else {
+                    source.sendSuccess(
+                        () -> Component.literal("\n§7No active goal currently"),
                         false
                     );
                 }

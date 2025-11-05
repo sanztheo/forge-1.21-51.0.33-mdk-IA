@@ -100,6 +100,13 @@ public class AIGoalManager {
     }
 
     /**
+     * Alias for getGoals() - used by BehaviorManager.
+     */
+    public List<AIGoal> getAllGoals() {
+        return getGoals();
+    }
+
+    /**
      * Get all currently active goals.
      */
     public Set<AIGoal> getActiveGoals() {
@@ -111,6 +118,13 @@ public class AIGoalManager {
      */
     public AIGoal getCurrentPriorityGoal() {
         return currentPriorityGoal;
+    }
+
+    /**
+     * Alias for getCurrentPriorityGoal() - used by BehaviorManager.
+     */
+    public AIGoal getCurrentGoal() {
+        return getCurrentPriorityGoal();
     }
 
     /**
