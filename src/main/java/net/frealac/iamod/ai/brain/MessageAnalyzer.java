@@ -50,8 +50,10 @@ public class MessageAnalyzer {
             messages.add(user);
 
             payload.add("messages", messages);
-            payload.addProperty("temperature", 0.3); // Low for consistent analysis
-            payload.addProperty("max_tokens", 150);
+
+            // Use config from BrainModelConfig
+            payload.addProperty("temperature", BrainModelConfig.getTemperature("MessageAnalyzer"));
+            payload.addProperty("max_tokens", BrainModelConfig.getMaxTokens("MessageAnalyzer"));
 
             // STRICT JSON mode
             JsonObject responseFormat = new JsonObject();

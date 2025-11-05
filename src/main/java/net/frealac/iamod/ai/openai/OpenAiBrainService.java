@@ -3,6 +3,7 @@ package net.frealac.iamod.ai.openai;
 import com.google.gson.*;
 import net.frealac.iamod.IAMOD;
 import net.frealac.iamod.ai.brain.AIAction;
+import net.frealac.iamod.ai.brain.BrainModelConfig;
 import net.frealac.iamod.ai.brain.VillagerBrainSystem;
 
 import java.io.IOException;
@@ -75,8 +76,10 @@ public class OpenAiBrainService {
         messages.add(user);
 
         payload.add("messages", messages);
-        payload.addProperty("temperature", 0.3); // Lower temperature for more consistent JSON
-        payload.addProperty("max_tokens", 300);
+
+        // Use config from BrainModelConfig for GeneralBrain
+        payload.addProperty("temperature", BrainModelConfig.getTemperature("GeneralBrain"));
+        payload.addProperty("max_tokens", BrainModelConfig.getMaxTokens("GeneralBrain"));
         payload.add("response_format", createJsonResponseFormat());
 
         String responseBody = client.sendChatRequest(payload);
