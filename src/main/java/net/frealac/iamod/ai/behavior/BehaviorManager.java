@@ -288,4 +288,104 @@ public class BehaviorManager {
                description.equals(searchName) ||
                goal.getClass().getSimpleName().toLowerCase().contains(searchName);
     }
+
+    /**
+     * Create debug info for HUD display.
+     * Collects all villager state information.
+     */
+    public net.frealac.iamod.ai.debug.VillagerDebugInfo createDebugInfo(
+            net.frealac.iamod.common.story.VillagerStory story,
+            net.minecraft.world.entity.player.Player player) {
+
+        if (!(entity instanceof Villager villager)) {
+            return new net.frealac.iamod.ai.debug.VillagerDebugInfo();
+        }
+
+        // Get villager name
+        String villagerName = "Villageois";
+        if (story != null && story.nameGiven != null && !story.nameGiven.isEmpty()) {
+            villagerName = story.nameGiven;
+            if (story.nameFamily != null && !story.nameFamily.isEmpty()) {
+                villagerName += " " + story.nameFamily;
+            }
+        }
+
+        // Get current action and goal
+        String currentAction = "Inactif";
+        String currentGoal = "Aucun";
+        String targetPlayer = "Aucun";
+
+        if (goalManager != null) {
+            AIGoal activeGoal = goalManager.getCurrentGoal();
+            if (activeGoal != null) {
+                currentAction = activeGoal.getDescription();
+                currentGoal = activeGoal.getClass().getSimpleName().replace("Goal", "");
+
+                // Check if following a player
+                if (activeGoal instanceof FollowPlayerGoal followGoal) {
+                    net.minecraft.world.entity.player.Player target = followGoal.getTargetPlayer();
+                    if (target != null) {
+                        targetPlayer = target.getName().getString();
+                    }
+                }
+            }
+        }
+
+        // Get psychology data
+        double mood = 0.0;
+        double stress = 0.0;
+        double resilience = 0.0;
+        double sleepQuality = 0.0;
+
+        if (story != null && story.psychology != null) {
+            mood = story.psychology.moodBaseline;
+            stress = story.psychology.stress;
+            resilience = story.psychology.resilience;
+        }
+
+        if (story != null && story.health != null) {
+            sleepQuality = story.health.sleepQuality;
+        }
+
+        // Get memory data
+        int memoryCount = 0;
+        double sentiment = 0.0;
+        java.util.List<String> recentMemories = new java.util.ArrayList<>();
+
+        if (story != null && story.interactionMemory != null && player != null) {
+            memoryCount = story.interactionMemory.getMemoryCount();
+            sentiment = story.interactionMemory.getSentimentTowardsPlayer(player.getUUID());
+
+            // Get last 5 memories
+            java.util.List<net.frealac.iamod.ai.memory.Memory> memories =
+                story.interactionMemory.getMemoriesWithPlayer(player.getUUID());
+
+            for (int i = 0; i < Math.min(5, memories.size()); i++) {
+                net.frealac.iamod.ai.memory.Memory mem = memories.get(i);
+                recentMemories.add(mem.getTimeDescription() + ": " +
+                    mem.getDescription().substring(0, Math.min(40, mem.getDescription().length())));
+            }
+        }
+
+        // Calculate distance to player
+        double distance = 0.0;
+        if (player != null) {
+            distance = villager.distanceTo(player);
+        }
+
+        return new net.frealac.iamod.ai.debug.VillagerDebugInfo(
+            villagerName,
+            currentAction,
+            currentGoal,
+            targetPlayer,
+            mood,
+            stress,
+            resilience,
+            sleepQuality,
+            memoryCount,
+            sentiment,
+            recentMemories,
+            distance
+        );
+    }
 }

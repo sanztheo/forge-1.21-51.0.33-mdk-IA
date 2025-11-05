@@ -14,6 +14,8 @@ import net.frealac.iamod.network.packet.PlayerMessageC2SPacket;
 import net.frealac.iamod.network.packet.SyncVillagerStoryS2CPacket;
 import net.frealac.iamod.network.packet.OpenAIConfigS2CPacket;
 import net.frealac.iamod.network.packet.UpdateAIConfigC2SPacket;
+import net.frealac.iamod.network.packet.SyncVillagerDebugS2CPacket;
+import net.frealac.iamod.client.hud.VillagerDebugHud;
 import net.frealac.iamod.server.ConversationManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
@@ -154,6 +156,19 @@ public class NetworkHandler {
                     mob.getCapability(net.frealac.iamod.ai.data.AIDataProvider.CAPABILITY).ifPresent(aiData -> {
                         aiData.getData().setGoalEnabled(msg.getGoalName(), msg.isEnabled());
                     });
+                })
+                .add();
+
+        // Villager Debug HUD sync packet
+        CHANNEL.messageBuilder(SyncVillagerDebugS2CPacket.class, id++, NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(SyncVillagerDebugS2CPacket::encode)
+                .decoder(SyncVillagerDebugS2CPacket::decode)
+                .consumerMainThread((msg, ctx) -> {
+                    if (msg.hasVillager()) {
+                        VillagerDebugHud.setDebugInfo(msg.getDebugInfo());
+                    } else {
+                        VillagerDebugHud.clearDebugInfo();
+                    }
                 })
                 .add();
     }

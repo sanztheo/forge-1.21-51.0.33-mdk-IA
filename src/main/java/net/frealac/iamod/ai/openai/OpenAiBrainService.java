@@ -27,23 +27,25 @@ public class OpenAiBrainService {
      * Takes into account the FULL villager personality, mood, health, memories, etc.
      *
      * @param playerMessage What the player said
-     * @param villagerStory Complete villager story with personality, mood, health
+     * @param villagerStory Complete villager story with personality, mood, health, memories
      * @param currentGoalsState Current state of goals (for context)
+     * @param playerUuid Player UUID for memory tracking
      * @return List of actions to execute
      */
     public List<AIAction> analyzeIntention(String playerMessage,
                                           net.frealac.iamod.common.story.VillagerStory villagerStory,
-                                          String currentGoalsState)
+                                          String currentGoalsState,
+                                          java.util.UUID playerUuid)
             throws IOException, InterruptedException {
 
         JsonObject payload = new JsonObject();
 
         JsonArray messages = new JsonArray();
 
-        // System prompt - teaches AI how to respond with actions + FULL personality context
+        // System prompt - teaches AI how to respond with actions + FULL personality context + MEMORIES
         JsonObject system = new JsonObject();
         system.addProperty("role", "system");
-        system.addProperty("content", buildBrainSystemPromptWithPersonality(villagerStory, currentGoalsState));
+        system.addProperty("content", buildBrainSystemPromptWithPersonality(villagerStory, currentGoalsState, playerUuid));
         messages.add(system);
 
         // User message
@@ -65,13 +67,15 @@ public class OpenAiBrainService {
     }
 
     /**
-     * Build RICH system prompt with FULL villager personality context.
+     * Build RICH system prompt with FULL villager personality context + MEMORIES.
      * The AI brain decides AUTONOMOUSLY how to respond based on ALL the context.
      * NO predefined conditions - the AI is a true autonomous brain.
+     * Includes all interaction memories to create realistic, consistent behavior.
      */
     private String buildBrainSystemPromptWithPersonality(
             net.frealac.iamod.common.story.VillagerStory story,
-            String goalsState) {
+            String goalsState,
+            java.util.UUID playerUuid) {
 
         // Basic identity
         String name = (story.nameGiven != null ? story.nameGiven : "Villageois") +
@@ -117,6 +121,15 @@ public class OpenAiBrainService {
         if (!healthState.isEmpty()) prompt.append(healthState).append("\n");
         if (story.bioBrief != null && !story.bioBrief.isEmpty()) {
             prompt.append("Histoire: ").append(story.bioBrief.substring(0, Math.min(200, story.bioBrief.length()))).append("\n");
+        }
+
+        // Memories - CRITICAL for realistic interactions
+        prompt.append("\n=== TES SOUVENIRS ===\n");
+        if (story.interactionMemory != null) {
+            String memoriesText = story.interactionMemory.formatMemoriesForPrompt(playerUuid);
+            prompt.append(memoriesText).append("\n");
+        } else {
+            prompt.append("Aucun souvenir particulier.\n");
         }
 
         prompt.append("\n=== TA SITUATION ACTUELLE ===\n");

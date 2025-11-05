@@ -203,6 +203,14 @@ public class VillagerMemory {
     }
 
     /**
+     * Get memories with a specific player (alias for getMemoriesAboutPlayer).
+     * Used for debug HUD display.
+     */
+    public List<Memory> getMemoriesWithPlayer(UUID playerUuid) {
+        return getMemoriesAboutPlayer(playerUuid);
+    }
+
+    /**
      * Clear all memories (for testing or reset).
      */
     public void clearMemories() {

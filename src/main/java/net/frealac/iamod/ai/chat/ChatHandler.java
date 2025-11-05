@@ -65,17 +65,37 @@ public class ChatHandler {
             // Get current goals state for context
             String goalsState = behaviorManager.getCurrentGoalsState();
 
-            // Ask the AI brain to analyze the message with FULL personality context
-            // The brain will decide actions based on this villager's unique state
-            List<AIAction> actions = brainService.analyzeIntention(message, story, goalsState);
+            // Ask the AI brain to analyze the message with FULL personality context + MEMORIES
+            // The brain will decide actions based on this villager's unique state and past interactions
+            List<AIAction> actions = brainService.analyzeIntention(message, story, goalsState, player.getUUID());
 
-            IAMOD.LOGGER.info("Villager {} received message: '{}', brain decided {} actions",
-                    getVillagerName(story), message, actions.size());
+            IAMOD.LOGGER.info("Villager {} received message from {}: '{}', brain decided {} actions",
+                    getVillagerName(story), player.getName().getString(), message, actions.size());
 
             // Execute each action decided by the brain
+            boolean hadPositiveInteraction = false;
+            boolean hadNegativeInteraction = false;
+            String villagerResponse = null;
+
             for (AIAction action : actions) {
                 executeAction(villager, player, action, behaviorManager);
+
+                // Track if villager responded
+                if (action.actionType == AIAction.ActionType.SPEAK && action.message != null) {
+                    villagerResponse = action.message;
+                }
+
+                // Track interaction type
+                if (action.actionType == AIAction.ActionType.ENABLE_GOAL ||
+                    action.actionType == AIAction.ActionType.ENABLE_ALL_GOALS) {
+                    hadPositiveInteraction = true;
+                } else if (action.actionType == AIAction.ActionType.NOTHING) {
+                    hadNegativeInteraction = true;
+                }
             }
+
+            // Add interaction memory
+            addInteractionMemory(story, player, message, villagerResponse, hadPositiveInteraction, hadNegativeInteraction);
 
         } catch (Exception e) {
             IAMOD.LOGGER.error("Failed to process villager AI response", e);
@@ -238,6 +258,49 @@ public class ChatHandler {
         story.health.wounds = new java.util.ArrayList<>();
 
         return story;
+    }
+
+    /**
+     * Add interaction memory automatically based on chat.
+     */
+    private static void addInteractionMemory(VillagerStory story, ServerPlayer player,
+                                            String playerMessage, String villagerResponse,
+                                            boolean positive, boolean negative) {
+        if (story.interactionMemory == null) {
+            story.interactionMemory = new net.frealac.iamod.ai.memory.VillagerMemory();
+        }
+
+        // Learn player name from message like "Je m'appelle X"
+        if (playerMessage.toLowerCase().contains("je m'appelle") ||
+            playerMessage.toLowerCase().contains("je suis") ||
+            playerMessage.toLowerCase().contains("mon nom")) {
+            story.interactionMemory.addMemory(
+                net.frealac.iamod.ai.memory.MemoryType.PLAYER_NAME_LEARNED,
+                "A appris le nom: " + player.getName().getString(),
+                player.getUUID(),
+                player.getName().getString()
+            );
+            IAMOD.LOGGER.info("Villager learned player name: {}", player.getName().getString());
+        }
+
+        // Create general interaction memory
+        net.frealac.iamod.ai.memory.MemoryType memoryType;
+        String description;
+
+        if (positive) {
+            memoryType = net.frealac.iamod.ai.memory.MemoryType.PLEASANT_CONVERSATION;
+            description = String.format("A dit: '%s' - J'ai accepté de l'aider", playerMessage.substring(0, Math.min(50, playerMessage.length())));
+        } else if (negative) {
+            memoryType = net.frealac.iamod.ai.memory.MemoryType.GENERAL_INTERACTION;
+            description = String.format("A dit: '%s' - Je l'ai ignoré", playerMessage.substring(0, Math.min(50, playerMessage.length())));
+        } else {
+            memoryType = net.frealac.iamod.ai.memory.MemoryType.GENERAL_INTERACTION;
+            description = String.format("A dit: '%s'", playerMessage.substring(0, Math.min(50, playerMessage.length())));
+        }
+
+        story.interactionMemory.addMemory(memoryType, description, player.getUUID(), player.getName().getString());
+
+        IAMOD.LOGGER.info("Added memory: {} - {}", memoryType, description);
     }
 
     /**
