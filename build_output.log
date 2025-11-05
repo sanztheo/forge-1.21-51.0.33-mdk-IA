@@ -1,0 +1,39 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.7/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+
+> Configure project :
+Java: 21.0.9, JVM: 21.0.9+10-LTS (Eclipse Adoptium), Arch: aarch64
+
+> Task :clean
+
+> Task :compileJava
+Note: SpongePowered MIXIN Annotation Processor Version=0.8.5
+Note: Supported obfuscation types: ObfuscationServiceMCP supports [searge,notch]
+/Users/sanz/Desktop/APP/forge-1.21-51.0.33-mdk-IA/src/main/java/net/frealac/iamod/common/story/StoryCapabilityInit.java:14: warning: [removal] RegisterCapabilitiesEvent in net.minecraftforge.common.capabilities has been deprecated and marked for removal
+    public static void registerCaps(RegisterCapabilitiesEvent event) {
+                                    ^
+/Users/sanz/Desktop/APP/forge-1.21-51.0.33-mdk-IA/src/main/java/net/frealac/iamod/common/story/StoryCapabilityInit.java:14: warning: [removal] RegisterCapabilitiesEvent in net.minecraftforge.common.capabilities has been deprecated and marked for removal
+    public static void registerCaps(RegisterCapabilitiesEvent event) {
+                                    ^
+/Users/sanz/Desktop/APP/forge-1.21-51.0.33-mdk-IA/src/main/java/net/frealac/iamod/common/story/StoryCapabilityInit.java:14: warning: [removal] RegisterCapabilitiesEvent in net.minecraftforge.common.capabilities has been deprecated and marked for removal
+    public static void registerCaps(RegisterCapabilitiesEvent event) {
+                                    ^
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+Note: /Users/sanz/Desktop/APP/forge-1.21-51.0.33-mdk-IA/src/main/java/net/frealac/iamod/common/story/VillagerStory.java uses unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+3 warnings
+
+> Task :processResources
+> Task :classes
+> Task :jar
+> Task :assemble
+> Task :compileTestJava NO-SOURCE
+> Task :processTestResources NO-SOURCE
+> Task :testClasses UP-TO-DATE
+> Task :test NO-SOURCE
+> Task :check UP-TO-DATE
+> Task :build
+
+BUILD SUCCESSFUL in 4s
+4 actionable tasks: 4 executed
