@@ -22,7 +22,7 @@ public class AIDataCapabilityInit {
             if (mob instanceof Villager) {
                 AIDataProvider provider = new AIDataProvider();
                 event.addCapability(
-                    new net.minecraft.resources.ResourceLocation(IAMOD.MOD_ID, "ai_data"),
+                    net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(IAMOD.MOD_ID, "ai_data"),
                     provider
                 );
             }

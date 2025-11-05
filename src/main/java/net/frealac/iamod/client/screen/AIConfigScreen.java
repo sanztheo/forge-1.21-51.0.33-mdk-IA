@@ -6,6 +6,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraftforge.network.PacketDistributor;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -93,7 +94,7 @@ public class AIConfigScreen extends Screen {
         goalStates.put(goalName, newState);
 
         // Send packet to server
-        NetworkHandler.CHANNEL.sendToServer(new UpdateAIConfigC2SPacket(entityId, goalName, newState));
+        NetworkHandler.CHANNEL.send(new UpdateAIConfigC2SPacket(entityId, goalName, newState), PacketDistributor.SERVER.noArg());
     }
 
     @Override

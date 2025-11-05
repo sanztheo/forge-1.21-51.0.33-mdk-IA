@@ -65,7 +65,12 @@ public class VillagerStory {
     // Goals
     public Goals goals;
 
-    public VillagerStory() {}
+    // AI Memory System - NEW: Tracks interactions with players
+    public transient net.frealac.iamod.ai.memory.VillagerMemory interactionMemory;
+
+    public VillagerStory() {
+        this.interactionMemory = new net.frealac.iamod.ai.memory.VillagerMemory();
+    }
 
     public CompoundTag toTag() {
         CompoundTag tag = new CompoundTag();
@@ -104,6 +109,12 @@ public class VillagerStory {
         if (!villageNews.isEmpty()) tag.putString("villageNews", GSON.toJson(villageNews));
         if (spouse != null) tag.putString("spouse", spouse);
         if (goals != null) tag.putString("goals", GSON.toJson(goals));
+
+        // Serialize interaction memory
+        if (interactionMemory != null) {
+            tag.putString("interactionMemory", interactionMemory.toJson());
+        }
+
         return tag;
     }
 
@@ -152,6 +163,14 @@ public class VillagerStory {
         if (s.villageNews == null) s.villageNews = new ArrayList<>();
         if (tag.contains("spouse")) s.spouse = tag.getString("spouse");
         if (tag.contains("goals")) s.goals = GSON.fromJson(tag.getString("goals"), Goals.class);
+
+        // Deserialize interaction memory
+        if (tag.contains("interactionMemory")) {
+            s.interactionMemory = net.frealac.iamod.ai.memory.VillagerMemory.fromJson(tag.getString("interactionMemory"));
+        } else {
+            s.interactionMemory = new net.frealac.iamod.ai.memory.VillagerMemory();
+        }
+
         return s;
     }
 

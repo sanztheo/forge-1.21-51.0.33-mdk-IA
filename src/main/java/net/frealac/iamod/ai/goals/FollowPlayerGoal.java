@@ -20,20 +20,18 @@ public class FollowPlayerGoal extends AIGoal {
     }
 
     public FollowPlayerGoal(Mob entity, int priority) {
-        this(entity, priority, 10.0, 2.0, 1.0);
+        // Reduced speed from 1.0 to 0.6 for more natural following
+        this(entity, priority, 16.0, 3.0, 0.6);
     }
 
     @Override
     public boolean canUse() {
-        if (!isActive) return false;
-
         targetPlayer = entity.level().getNearestPlayer(entity, followDistance);
         return targetPlayer != null && !targetPlayer.isSpectator();
     }
 
     @Override
     public boolean canContinueToUse() {
-        if (!isActive) return false;
         if (targetPlayer == null) return false;
         if (targetPlayer.isSpectator()) return false;
 
@@ -76,5 +74,13 @@ public class FollowPlayerGoal extends AIGoal {
 
     public Player getTargetPlayer() {
         return targetPlayer;
+    }
+
+    /**
+     * Set a specific player as the target to follow.
+     * Used when the AI brain decides this villager should follow a specific player.
+     */
+    public void setTargetPlayer(Player player) {
+        this.targetPlayer = player;
     }
 }

@@ -14,6 +14,8 @@ import net.frealac.iamod.network.packet.PlayerMessageC2SPacket;
 import net.frealac.iamod.network.packet.SyncVillagerStoryS2CPacket;
 import net.frealac.iamod.network.packet.OpenAIConfigS2CPacket;
 import net.frealac.iamod.network.packet.UpdateAIConfigC2SPacket;
+import net.frealac.iamod.network.packet.SyncVillagerDebugS2CPacket;
+import net.frealac.iamod.client.hud.VillagerDebugHud;
 import net.frealac.iamod.server.ConversationManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
@@ -135,13 +137,39 @@ public class NetworkHandler {
         CHANNEL.messageBuilder(OpenAIConfigS2CPacket.class, id++, NetworkDirection.PLAY_TO_CLIENT)
                 .encoder(OpenAIConfigS2CPacket::encode)
                 .decoder(OpenAIConfigS2CPacket::new)
-                .consumerMainThread(OpenAIConfigS2CPacket::handle)
+                .consumerMainThread((msg, ctx) -> {
+                    Minecraft.getInstance().setScreen(new net.frealac.iamod.client.screen.AIConfigScreen(msg.getEntityId()));
+                })
                 .add();
 
         CHANNEL.messageBuilder(UpdateAIConfigC2SPacket.class, id++, NetworkDirection.PLAY_TO_SERVER)
                 .encoder(UpdateAIConfigC2SPacket::encode)
                 .decoder(UpdateAIConfigC2SPacket::new)
-                .consumerMainThread(UpdateAIConfigC2SPacket::handle)
+                .consumerMainThread((msg, ctx) -> {
+                    ServerPlayer player = ctx.getSender();
+                    if (player == null) return;
+
+                    var entity = player.level().getEntity(msg.getEntityId());
+                    if (!(entity instanceof net.minecraft.world.entity.Mob mob)) return;
+
+                    // Update AI data capability
+                    mob.getCapability(net.frealac.iamod.ai.data.AIDataProvider.CAPABILITY).ifPresent(aiData -> {
+                        aiData.getData().setGoalEnabled(msg.getGoalName(), msg.isEnabled());
+                    });
+                })
+                .add();
+
+        // Villager Debug HUD sync packet
+        CHANNEL.messageBuilder(SyncVillagerDebugS2CPacket.class, id++, NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(SyncVillagerDebugS2CPacket::encode)
+                .decoder(SyncVillagerDebugS2CPacket::decode)
+                .consumerMainThread((msg, ctx) -> {
+                    if (msg.hasVillager()) {
+                        VillagerDebugHud.setDebugInfo(msg.getDebugInfo());
+                    } else {
+                        VillagerDebugHud.clearDebugInfo();
+                    }
+                })
                 .add();
     }
 
