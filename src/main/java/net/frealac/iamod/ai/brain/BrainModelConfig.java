@@ -19,43 +19,52 @@ import java.util.Map;
  */
 public class BrainModelConfig {
 
-    // Default model for all brains (optimized for games)
-    public static final String DEFAULT_MODEL = "gpt-4o-mini";
+    // Default models per function
+    public static final String ANALYSIS_MODEL = "gpt-3.5-turbo";  // Ultra rapide pour analyses
+    public static final String CONVERSATION_MODEL = "gpt-4o-mini"; // Qualité pour conversations
 
     // Model assignments per brain type
     private static final Map<String, BrainConfig> BRAIN_CONFIGS = new HashMap<>();
 
     static {
-        // EmotionalBrain: Fast emotion analysis
+        // EmotionalBrain: gpt-3.5-turbo pour analyse rapide des émotions
         BRAIN_CONFIGS.put("EmotionalBrain", new BrainConfig(
-            "gpt-4o-mini",      // Model
-            0.7,                // Temperature (un peu de variation)
+            "gpt-3.5-turbo",    // Ultra rapide
+            0.3,                // Temperature (précis)
             100,                // Max tokens
             true                // Enable AI assistance
         ));
 
-        // MemoryBrain: Fast memory search
+        // MemoryBrain: Local uniquement (pas d'AI = ultra rapide)
         BRAIN_CONFIGS.put("MemoryBrain", new BrainConfig(
-            "gpt-4o-mini",      // Model
-            0.3,                // Temperature (très précis)
+            "gpt-3.5-turbo",    // Backup si besoin
+            0.2,                // Temperature (très précis)
             150,                // Max tokens
-            false               // Mostly local processing (faster)
+            false               // LOCAL ONLY - pas d'appel IA
         ));
 
-        // SocialBrain: Fast relationship analysis
+        // SocialBrain: Local uniquement (pas d'AI = ultra rapide)
         BRAIN_CONFIGS.put("SocialBrain", new BrainConfig(
-            "gpt-4o-mini",      // Model
-            0.5,                // Temperature (équilibré)
+            "gpt-3.5-turbo",    // Backup si besoin
+            0.3,                // Temperature (précis)
             100,                // Max tokens
-            false               // Mostly local processing (faster)
+            false               // LOCAL ONLY - pas d'appel IA
         ));
 
-        // GeneralBrain: Comprehensive synthesis
+        // GeneralBrain: gpt-4o-mini pour conversation de qualité
         BRAIN_CONFIGS.put("GeneralBrain", new BrainConfig(
-            "gpt-4o-mini",      // Model (peut être changé en gpt-4o pour plus de qualité)
+            "gpt-4o-mini",      // Qualité conversation
             0.7,                // Temperature (créatif)
             300,                // Max tokens
             true                // Always uses AI
+        ));
+
+        // MessageAnalyzer: gpt-3.5-turbo pour analyse rapide
+        BRAIN_CONFIGS.put("MessageAnalyzer", new BrainConfig(
+            "gpt-3.5-turbo",    // Ultra rapide
+            0.3,                // Temperature (précis)
+            150,                // Max tokens
+            true                // AI enabled
         ));
     }
 
@@ -81,7 +90,7 @@ public class BrainModelConfig {
      */
     public static BrainConfig getConfig(String brainModuleName) {
         return BRAIN_CONFIGS.getOrDefault(brainModuleName,
-            new BrainConfig(DEFAULT_MODEL, 0.5, 200, false));
+            new BrainConfig(ANALYSIS_MODEL, 0.5, 200, false));
     }
 
     /**
@@ -158,10 +167,11 @@ public class BrainModelConfig {
         }
 
         sb.append("OPTIMIZATION:\n");
-        sb.append("- EmotionalBrain: AI enabled for complex emotion analysis\n");
-        sb.append("- MemoryBrain: LOCAL only (faster, no API cost)\n");
-        sb.append("- SocialBrain: LOCAL only (faster, no API cost)\n");
-        sb.append("- GeneralBrain: AI enabled for final decision synthesis\n");
+        sb.append("- MessageAnalyzer: gpt-3.5-turbo (ultra rapide, JSON strict)\n");
+        sb.append("- EmotionalBrain: gpt-3.5-turbo (analyse rapide émotions)\n");
+        sb.append("- MemoryBrain: LOCAL only (pas d'appel IA = ultra rapide)\n");
+        sb.append("- SocialBrain: LOCAL only (pas d'appel IA = ultra rapide)\n");
+        sb.append("- GeneralBrain: gpt-4o-mini (qualité conversation)\n");
 
         return sb.toString();
     }

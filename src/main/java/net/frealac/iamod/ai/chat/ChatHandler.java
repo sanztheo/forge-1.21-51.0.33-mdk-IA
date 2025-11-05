@@ -68,7 +68,24 @@ public class ChatHandler {
             // Get current goals state for context
             String goalsState = behaviorManager.getCurrentGoalsState();
 
-            // Ask the AI brain to analyze the message with FULL personality context + MEMORIES
+            // 1. ANALYZE MESSAGE with AI (sentiment, emotions, impact)
+            net.frealac.iamod.ai.brain.MessageAnalyzer.MessageImpact impact =
+                net.frealac.iamod.ai.brain.MessageAnalyzer.analyzeMessage(message);
+
+            IAMOD.LOGGER.info("💬 Message impact: sentiment={} ({})",
+                impact.overallSentiment, impact.getDescription());
+
+            // 2. Get brain system for this villager
+            net.frealac.iamod.ai.brain.VillagerBrainSystem brainSystem =
+                brainService.getBrainSystem(villager.getId());
+
+            // 3. SEND SIGNALS to brain modules based on message impact
+            if (brainSystem != null) {
+                net.frealac.iamod.ai.brain.MessageAnalyzer.sendBrainSignals(
+                    impact, brainSystem, player.getUUID());
+            }
+
+            // 4. Ask the AI brain to analyze the message with FULL personality context + MEMORIES
             // The brain will decide actions based on this villager's unique state and past interactions
             List<AIAction> actions = brainService.analyzeIntention(
                 villager.getId(), message, story, goalsState, player.getUUID());

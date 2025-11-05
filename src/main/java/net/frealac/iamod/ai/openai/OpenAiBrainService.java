@@ -97,6 +97,13 @@ public class OpenAiBrainService {
     }
 
     /**
+     * Get brain system for a villager (without creating it if it doesn't exist).
+     */
+    public VillagerBrainSystem getBrainSystem(int villagerId) {
+        return brainSystems.get(villagerId);
+    }
+
+    /**
      * Remove brain system for a villager (when villager is removed/despawns).
      */
     public void removeBrainSystem(int villagerId) {
