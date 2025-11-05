@@ -24,13 +24,12 @@ public class OpenAiBrainService {
     private final OpenAiClient client;
     private final Gson gson;
 
-    // Brain systems cache per villager
-    private final Map<Integer, VillagerBrainSystem> brainSystems;
+    // Brain systems cache per villager (STATIC - shared across all instances)
+    private static final Map<Integer, VillagerBrainSystem> brainSystems = new HashMap<>();
 
     public OpenAiBrainService() {
         this.client = new OpenAiClient();
         this.gson = new GsonBuilder().create();
-        this.brainSystems = new HashMap<>();
     }
 
     /**
