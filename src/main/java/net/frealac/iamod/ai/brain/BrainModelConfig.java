@@ -19,51 +19,55 @@ import java.util.Map;
  */
 public class BrainModelConfig {
 
-    // Default models per function
-    public static final String ANALYSIS_MODEL = "gpt-3.5-turbo";  // Ultra rapide pour analyses
-    public static final String CONVERSATION_MODEL = "gpt-4o-mini"; // Qualité pour conversations
+    // UNIFIED MODEL: Only gpt-4o-mini (as per user requirement)
+    public static final String UNIFIED_MODEL = "gpt-4o-mini";
+    public static final String ANALYSIS_MODEL = "gpt-4o-mini";
+    public static final String CONVERSATION_MODEL = "gpt-4o-mini";
 
     // Model assignments per brain type
+    // ARCHITECTURE: Stanford Generative Agents (Memory Stream + Reflection + Planning)
     private static final Map<String, BrainConfig> BRAIN_CONFIGS = new HashMap<>();
 
     static {
-        // EmotionalBrain: gpt-3.5-turbo pour analyse rapide des émotions
+        // EmotionalBrain: gpt-4o-mini for emotional processing
         BRAIN_CONFIGS.put("EmotionalBrain", new BrainConfig(
-            "gpt-3.5-turbo",    // Ultra rapide
+            "gpt-4o-mini",      // Unified model
             0.3,                // Temperature (précis)
-            2000,                // Max tokens (augmenté pour analyse détaillée)
+            2000,               // Max tokens
             true                // Enable AI assistance
         ));
 
-        // MemoryBrain: Local uniquement (pas d'AI = ultra rapide)
+        // MemoryBrain: gpt-4o-mini for reflection and retrieval scoring
+        // GENERATIVE AGENTS: Reflection component (synthesizes memories)
         BRAIN_CONFIGS.put("MemoryBrain", new BrainConfig(
-            "gpt-3.5-turbo",    // Backup si besoin
+            "gpt-4o-mini",      // Unified model
             0.2,                // Temperature (très précis)
-            2000,                // Max tokens
-            false               // LOCAL ONLY - pas d'appel IA
+            2500,               // Max tokens (for reflection synthesis)
+            true                // AI enabled for reflection
         ));
 
-        // SocialBrain: Local uniquement (pas d'AI = ultra rapide)
+        // SocialBrain: gpt-4o-mini for social understanding
         BRAIN_CONFIGS.put("SocialBrain", new BrainConfig(
-            "gpt-3.5-turbo",    // Backup si besoin
+            "gpt-4o-mini",      // Unified model
             0.3,                // Temperature (précis)
-            2000,                // Max tokens
-            false               // LOCAL ONLY - pas d'appel IA
+            2000,               // Max tokens
+            true                // AI enabled for social cognition
         ));
 
-        // GeneralBrain: gpt-4o-mini pour conversation de qualité
+        // GeneralBrain: gpt-4o-mini pour conversation et planning
+        // GENERATIVE AGENTS: Planning component (action generation)
         BRAIN_CONFIGS.put("GeneralBrain", new BrainConfig(
-            "gpt-4o-mini",      // Qualité conversation
+            "gpt-4o-mini",      // Unified model
             0.7,                // Temperature (créatif)
-            3000,               // Max tokens (3000 pour PLEIN de contexte)
+            3500,               // Max tokens (pour planning + contexte)
             true                // Always uses AI
         ));
 
-        // MessageAnalyzer: gpt-3.5-turbo pour analyse rapide
+        // MessageAnalyzer: gpt-4o-mini pour analyse mood-congruent
         BRAIN_CONFIGS.put("MessageAnalyzer", new BrainConfig(
-            "gpt-3.5-turbo",    // Ultra rapide
+            "gpt-4o-mini",      // Unified model
             0.3,                // Temperature (précis)
-            2000,                // Max tokens (augmenté pour analyse détaillée)
+            2000,               // Max tokens
             true                // AI enabled
         ));
     }

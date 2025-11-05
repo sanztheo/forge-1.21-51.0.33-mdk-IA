@@ -25,7 +25,10 @@ public enum MemoryType {
     GENERAL_INTERACTION("Interaction générale", 0.0),
     INFORMATION_SHARED("Information partagée", 0.0),
     REQUEST_MADE("Demande effectuée", 0.0),
-    QUEST_GIVEN("Quête donnée", 0.1);
+    QUEST_GIVEN("Quête donnée", 0.1),
+
+    // STANFORD GENERATIVE AGENTS: Reflection memories
+    REFLECTION("Réflexion synthétisée", 0.0);
 
     private final String description;
     private final double baseEmotionalImpact;

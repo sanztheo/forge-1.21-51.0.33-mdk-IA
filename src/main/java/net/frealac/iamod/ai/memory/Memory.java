@@ -153,6 +153,84 @@ public class Memory {
     }
 
     /**
+     * STANFORD GENERATIVE AGENTS: Memory Retrieval Score
+     * Combines recency, importance, and relevance to surface the most relevant memories.
+     *
+     * Formula: score = α_recency × recency + α_importance × importance + α_relevance × relevance
+     * With all α = 1 (equal weights)
+     *
+     * @param query The current context/query to match against
+     * @param lastAccessTime Last time this memory was accessed (for recency decay)
+     * @return Retrieval score [0, 1] normalized
+     */
+    public double getRetrievalScore(String query, long lastAccessTime) {
+        double recency = calculateRecency(lastAccessTime);
+        double importance = this.importance; // Already normalized [0, 1]
+        double relevance = calculateRelevance(query);
+
+        // Combine with equal weights (α = 1 for all)
+        double score = recency + importance + relevance;
+
+        // Normalize to [0, 1] (max possible = 3.0)
+        return score / 3.0;
+    }
+
+    /**
+     * Calculate recency score using exponential decay.
+     * Formula: 0.995^hours_elapsed
+     *
+     * SCIENTIFIC BASIS: Recent memories are more accessible (recency effect).
+     */
+    private double calculateRecency(long lastAccessTime) {
+        double hoursElapsed = (System.currentTimeMillis() - lastAccessTime) / (1000.0 * 60.0 * 60.0);
+        return Math.pow(0.995, hoursElapsed);
+    }
+
+    /**
+     * Calculate relevance score using word matching (simplified version).
+     * TODO: Upgrade to cosine similarity with embeddings for better results.
+     *
+     * SCIENTIFIC BASIS: Contextually relevant memories are more likely to be retrieved.
+     */
+    private double calculateRelevance(String query) {
+        if (query == null || query.isEmpty() || description == null || description.isEmpty()) {
+            return 0.0;
+        }
+
+        // Normalize strings
+        String queryLower = query.toLowerCase();
+        String descLower = description.toLowerCase();
+
+        // Split into words
+        String[] queryWords = queryLower.split("\\s+");
+        String[] descWords = descLower.split("\\s+");
+
+        // Count matching words
+        int matches = 0;
+        for (String qWord : queryWords) {
+            if (qWord.length() < 3) continue; // Skip short words
+            for (String dWord : descWords) {
+                if (dWord.contains(qWord) || qWord.contains(dWord)) {
+                    matches++;
+                    break;
+                }
+            }
+        }
+
+        // Normalize by query length
+        return Math.min(1.0, (double) matches / Math.max(1, queryWords.length));
+    }
+
+    /**
+     * Mark this memory as accessed (updates last access time for recency calculation).
+     */
+    public void markAccessed() {
+        // Update timestamp to reflect recent access
+        // This simulates "rehearsal" in memory consolidation
+        this.timestamp = System.currentTimeMillis();
+    }
+
+    /**
      * Get a formatted string for AI prompt.
      */
     public String toPromptString() {

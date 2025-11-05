@@ -132,11 +132,12 @@ public class GeneralBrain extends BrainModule {
         context.append("\n");
 
         // 3. MEMORIES (qu'est-ce que je me souviens ?)
+        // STANFORD GENERATIVE AGENTS: Use retrieval scoring to get most relevant memories
         context.append("=== MES SOUVENIRS AVEC CE JOUEUR ===\n");
         if (memoryBrain != null) {
             context.append(memoryBrain.getMemorySummaryForPrompt(playerUuid)).append("\n");
-            context.append("\nDétails des souvenirs:\n");
-            context.append(memoryBrain.getMemoriesForPrompt(playerUuid)).append("\n");
+            context.append("\nSouvenirs les plus pertinents (retrieval scoring):\n");
+            context.append(getRelevantMemoriesForPrompt(playerUuid, playerMessage)).append("\n");
         } else {
             context.append("Aucun souvenir particulier.\n");
         }
@@ -185,6 +186,68 @@ public class GeneralBrain extends BrainModule {
         IAMOD.LOGGER.debug("🧠 GeneralBrain: Generated context ({} chars)", fullContext.length());
 
         return fullContext;
+    }
+
+    /**
+     * STANFORD GENERATIVE AGENTS: Get most relevant memories using retrieval scoring.
+     *
+     * Retrieval score combines:
+     * - Recency: How recent is the memory? (exponential decay)
+     * - Importance: How important/memorable is it?
+     * - Relevance: How relevant to current query?
+     *
+     * @param playerUuid Player to get memories about
+     * @param query Current context/query for relevance calculation
+     * @return Formatted string with top relevant memories
+     */
+    private String getRelevantMemoriesForPrompt(UUID playerUuid, String query) {
+        if (memoryBrain == null || playerUuid == null) {
+            return "Aucun souvenir.";
+        }
+
+        java.util.List<net.frealac.iamod.ai.memory.Memory> memories =
+            memoryBrain.getMemoriesWithPlayer(playerUuid);
+
+        if (memories.isEmpty()) {
+            return "Aucun souvenir avec ce joueur.";
+        }
+
+        // Calculate retrieval score for each memory
+        long currentTime = System.currentTimeMillis();
+        java.util.List<ScoredMemory> scoredMemories = new java.util.ArrayList<>();
+
+        for (net.frealac.iamod.ai.memory.Memory memory : memories) {
+            double score = memory.getRetrievalScore(query, currentTime);
+            scoredMemories.add(new ScoredMemory(memory, score));
+        }
+
+        // Sort by score (highest first)
+        scoredMemories.sort((a, b) -> Double.compare(b.score, a.score));
+
+        // Take top 10 most relevant memories
+        int limit = Math.min(10, scoredMemories.size());
+        StringBuilder result = new StringBuilder();
+
+        for (int i = 0; i < limit; i++) {
+            ScoredMemory sm = scoredMemories.get(i);
+            result.append(String.format("- [score=%.2f] %s\n",
+                sm.score, sm.memory.toPromptString()));
+        }
+
+        return result.toString();
+    }
+
+    /**
+     * Helper class to pair memories with their retrieval scores.
+     */
+    private static class ScoredMemory {
+        final net.frealac.iamod.ai.memory.Memory memory;
+        final double score;
+
+        ScoredMemory(net.frealac.iamod.ai.memory.Memory memory, double score) {
+            this.memory = memory;
+            this.score = score;
+        }
     }
 
     /**
